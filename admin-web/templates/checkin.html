@@ -5,11 +5,11 @@
 {% block content %}
 <section class="form-panel form-panel-wide">
   <p class="hint">
-    เปิดหน้านี้แล้ววางนิ้วได้เลย ไม่ต้องกดปุ่ม
+    เปิดหน้านี้แล้ววางนิ้วได้เลย — อย่าเปิดหน้าเช็คเข้าและเช็คออกพร้อมกัน
   </p>
 
   <div class="student-box ready-box" id="status-box">
-    <p class="muted" id="status-text">กำลังเตรียมเซนเซอร์...</p>
+    <p class="ready-text" id="status-text">กำลังเปิดเซนเซอร์...</p>
   </div>
 
   <div class="result-box" id="result-box" hidden></div>
@@ -21,7 +21,7 @@
   const statusText = document.getElementById("status-text");
   const resultBox = document.getElementById("result-box");
   const messageEl = document.getElementById("message");
-  let busy = false;
+  let stopped = false;
 
   function showMessage(text, ok) {
     messageEl.hidden = false;
@@ -34,29 +34,15 @@
     statusText.className = isError ? "error-text" : "ready-text";
   }
 
-  async function warmSensor() {
-    const res = await fetch("{{ url_for('api_sensor_ready') }}", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}"
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.message || "เซนเซอร์ไม่พร้อม");
-    return data;
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
 
   async function listenLoop() {
-    while (true) {
+    while (!stopped) {
+      setStatus("R307 พร้อมแล้ว — วางนิ้วเพื่อเช็คเข้า");
+      showMessage("รอรับลายนิ้วมือ...", true);
       try {
-        if (busy) {
-          await new Promise(function (r) { setTimeout(r, 400); });
-          continue;
-        }
-        busy = true;
-        await warmSensor();
-        setStatus("R307 พร้อมแล้ว — วางนิ้วเพื่อเช็คเข้า");
-        showMessage("รอรับลายนิ้วมือ...", true);
-
         const res = await fetch("{{ url_for('api_checkin') }}", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -75,17 +61,17 @@
           "<p>เวลาเข้า: " + r.when + "</p>";
         setStatus("เช็คเข้าสำเร็จ — พร้อมรับคนถัดไป");
         showMessage(data.message + ": " + r.student_code + " " + r.name, true);
-        await new Promise(function (r) { setTimeout(r, 1200); });
+        await sleep(1500);
       } catch (err) {
-        setStatus(err.message || "รอสแกนต่อ...", true);
-        showMessage(err.message || "เกิดข้อผิดพลาด กำลังรอใหม่", false);
-        await new Promise(function (r) { setTimeout(r, 1500); });
-      } finally {
-        busy = false;
+        const msg = err.message || "เกิดข้อผิดพลาด";
+        setStatus(msg, true);
+        showMessage(msg + " — รอสักครู่แล้วลองใหม่", false);
+        await sleep(2500);
       }
     }
   }
 
+  window.addEventListener("beforeunload", function () { stopped = true; });
   listenLoop();
 })();
 </script>

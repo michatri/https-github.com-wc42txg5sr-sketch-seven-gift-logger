@@ -5,13 +5,16 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from flask import Flask, flash, g, jsonify, redirect, render_template, request, url_for
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB = BASE_DIR / "school.db"
+_SENSOR_LOCK = threading.Lock()
 
 app = Flask(__name__)
 app.config["DB_PATH"] = Path(os.environ.get("SCHOOL_DB", DEFAULT_DB))
@@ -158,21 +161,60 @@ def full_name(first_name: str, last_name: str) -> str:
     return f"{first_name} {last_name}".strip()
 
 
+def close_sensor(sensor) -> None:
+    if sensor is None:
+        return
+    for attr in ("_ser", "ser", "_serial"):
+        ser = getattr(sensor, attr, None)
+        if ser is None:
+            continue
+        try:
+            ser.close()
+        except Exception:
+            pass
+        break
+    # Give the kernel a moment before the next open
+    time.sleep(0.35)
+
+
 def open_sensor():
     try:
         from pyfingerprint.pyfingerprint import PyFingerprint
     except ImportError as exc:
         raise RuntimeError("ยังไม่ได้ติดตั้ง pyfingerprint (pip install pyfingerprint)") from exc
 
-    sensor = PyFingerprint(
-        app.config["FINGERPRINT_PORT"],
-        app.config["FINGERPRINT_BAUD"],
-        0xFFFFFFFF,
-        0x00000000,
-    )
-    if not sensor.verifyPassword():
-        raise RuntimeError("เซนเซอร์ลายนิ้วมือไม่พร้อมใช้งาน")
-    return sensor
+    port = app.config["FINGERPRINT_PORT"]
+    baud = app.config["FINGERPRINT_BAUD"]
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            sensor = PyFingerprint(port, baud, 0xFFFFFFFF, 0x00000000)
+            if not sensor.verifyPassword():
+                close_sensor(sensor)
+                raise RuntimeError("เซนเซอร์ลายนิ้วมือไม่พร้อมใช้งาน")
+            return sensor
+        except Exception as exc:
+            last_error = exc
+            time.sleep(0.4 * (attempt + 1))
+    raise RuntimeError(f"เปิดเซนเซอร์ไม่สำเร็จ: {last_error}")
+
+
+@contextmanager
+def sensor_session():
+    """Ensure only one request talks to the R307 at a time."""
+    acquired = _SENSOR_LOCK.acquire(timeout=50)
+    if not acquired:
+        raise RuntimeError(
+            "เซนเซอร์กำลังถูกใช้อยู่ กรุณารอสักครู่ "
+            "(เปิดหน้าเช็คเข้าและเช็คออกพร้อมกันได้เพียงหน้าเดียว)"
+        )
+    sensor = None
+    try:
+        sensor = open_sensor()
+        yield sensor
+    finally:
+        close_sensor(sensor)
+        _SENSOR_LOCK.release()
 
 
 def wait_for_finger(sensor, timeout_sec: int = 40) -> None:
@@ -197,7 +239,9 @@ def enroll_fingerprint(
     exclude_positions: set[int] | None = None,
 ) -> tuple[object, int]:
     if sensor is None:
-        sensor = open_sensor()
+        with sensor_session() as owned:
+            return enroll_fingerprint(owned, hand_label, exclude_positions)
+
     exclude = {int(p) for p in (exclude_positions or set())}
 
     for _attempt in range(3):
@@ -291,11 +335,11 @@ def purge_student_fingerprints(student) -> list[int]:
     if not positions:
         return []
 
-    sensor = open_sensor()
     deleted: list[int] = []
-    for pos in positions:
-        delete_template(sensor, pos, strict=True)
-        deleted.append(pos)
+    with sensor_session() as sensor:
+        for pos in positions:
+            delete_template(sensor, pos, strict=True)
+            deleted.append(pos)
     return deleted
 
 
@@ -490,40 +534,40 @@ def edit_student(student_id: int):
 
         left_id = student["finger_left_id"]
         right_id = student["finger_right_id"] or student["finger_id"]
-        sensor = None
         new_left = None
         new_right = None
 
         try:
-            if form["rescan_left"]:
-                exclude = set()
-                if student["finger_right_id"] is not None:
-                    exclude.add(int(student["finger_right_id"]))
-                elif student["finger_id"] is not None:
-                    exclude.add(int(student["finger_id"]))
-                sensor, new_left = enroll_fingerprint(
-                    sensor, "นิ้วมือซ้าย", exclude_positions=exclude
-                )
-            if form["rescan_right"]:
-                exclude = set()
-                current_left = new_left if new_left is not None else student["finger_left_id"]
-                if current_left is not None:
-                    exclude.add(int(current_left))
-                sensor, new_right = enroll_fingerprint(
-                    sensor, "นิ้วมือขวา", exclude_positions=exclude
-                )
+            if form["rescan_left"] or form["rescan_right"]:
+                with sensor_session() as sensor:
+                    if form["rescan_left"]:
+                        exclude = set()
+                        if student["finger_right_id"] is not None:
+                            exclude.add(int(student["finger_right_id"]))
+                        elif student["finger_id"] is not None:
+                            exclude.add(int(student["finger_id"]))
+                        _sensor, new_left = enroll_fingerprint(
+                            sensor, "นิ้วมือซ้าย", exclude_positions=exclude
+                        )
+                    if form["rescan_right"]:
+                        exclude = set()
+                        current_left = (
+                            new_left if new_left is not None else student["finger_left_id"]
+                        )
+                        if current_left is not None:
+                            exclude.add(int(current_left))
+                        _sensor, new_right = enroll_fingerprint(
+                            sensor, "นิ้วมือขวา", exclude_positions=exclude
+                        )
+                    if new_left is not None:
+                        delete_template(sensor, left_id)
+                        left_id = new_left
+                    if new_right is not None:
+                        delete_template(sensor, right_id)
+                        right_id = new_right
         except Exception as exc:
-            delete_template(sensor, new_left)
-            delete_template(sensor, new_right)
             flash(f"สแกนนิ้วไม่สำเร็จ: {exc}", "error")
             return render_template("edit_student.html", form=form, student=student), 400
-
-        if new_left is not None:
-            delete_template(sensor, left_id)
-            left_id = new_left
-        if new_right is not None:
-            delete_template(sensor, right_id)
-            right_id = new_right
 
         display_name = full_name(form["first_name"], form["last_name"])
         compat_finger = right_id if right_id is not None else left_id
@@ -732,27 +776,27 @@ def checkout():
 
 
 def scan_student_from_sensor(timeout_sec: int = 40):
-    sensor = open_sensor()
-    wait_for_finger(sensor, timeout_sec=timeout_sec)
-    sensor.convertImage(0x01)
-    position, score = sensor.searchTemplate()
-    if position < 0:
-        raise RuntimeError("ไม่พบลายนิ้วมือในระบบ")
+    with sensor_session() as sensor:
+        wait_for_finger(sensor, timeout_sec=timeout_sec)
+        sensor.convertImage(0x01)
+        position, score = sensor.searchTemplate()
+        if position < 0:
+            raise RuntimeError("ไม่พบลายนิ้วมือในระบบ")
 
-    student = find_student_by_finger(get_db(), int(position))
-    if not student:
-        raise RuntimeError(f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน")
+        student = find_student_by_finger(get_db(), int(position))
+        if not student:
+            raise RuntimeError(f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน")
 
-    hand = matched_hand_for(student, int(position))
-    return student, hand, int(position), int(score)
+        hand = matched_hand_for(student, int(position))
+        return student, hand, int(position), int(score)
 
 
 @app.route("/api/sensor-ready", methods=["POST"])
 def api_sensor_ready():
     try:
-        sensor = open_sensor()
-        count = sensor.getTemplateCount()
-        capacity = sensor.getStorageCapacity()
+        with sensor_session() as sensor:
+            count = sensor.getTemplateCount()
+            capacity = sensor.getStorageCapacity()
         return jsonify(
             ok=True,
             message="R307 พร้อมรับลายนิ้วมือแล้ว",
@@ -871,47 +915,23 @@ def student_payload(row) -> dict:
 
 @app.route("/api/identify-finger", methods=["POST"])
 def api_identify_finger():
-    db = get_db()
     try:
-        sensor = open_sensor()
-        # Wait until finger is present
-        wait_for_finger(sensor, timeout_sec=40)
-        sensor.convertImage(0x01)
-        position, score = sensor.searchTemplate()
-        if position < 0:
-            return jsonify(
-                ok=False,
-                message="ไม่พบลายนิ้วมือในระบบ — ลงทะเบียนนิ้วนี้ก่อน หรือลองนิ้วอีกข้าง",
-            ), 404
-
-        student = find_student_by_finger(db, int(position))
-        if not student:
-            return jsonify(
-                ok=False,
-                message=(
-                    f"พบนิ้ว #{position} ในเซนเซอร์ แต่ยังไม่ได้ผูกกับนักเรียน "
-                    "(อาจเป็นนิ้วค้าง — รัน clear_orphan_fingers.py หรือลงทะเบียนใหม่)"
-                ),
-            ), 404
-
-        # Ensure balance column is readable even on older rows
-        balance_row = db.execute(
+        student, hand, position, score = scan_student_from_sensor(timeout_sec=40)
+        balance_row = get_db().execute(
             "SELECT balance FROM students WHERE id = ?",
             (student["id"],),
         ).fetchone()
         student_dict = dict(student)
         student_dict["balance"] = int((balance_row["balance"] if balance_row else 0) or 0)
-
-        hand = matched_hand_for(student, int(position))
         payload = student_payload(student_dict)
-        payload["finger_id"] = int(position)
+        payload["finger_id"] = position
         payload["hand"] = hand
-        payload["score"] = int(score)
+        payload["score"] = score
         return jsonify(ok=True, student=payload)
     except TimeoutError:
         return jsonify(
             ok=False,
-            message="หมดเวลารอวางนิ้ว — กดปุ่มแล้ววางนิ้วบนเซนเซอร์ภายใน 40 วินาที",
+            message="หมดเวลารอวางนิ้ว — วางนิ้วบนเซนเซอร์ภายใน 40 วินาที",
         ), 408
     except Exception as exc:
         return jsonify(ok=False, message=f"สแกนไม่สำเร็จ: {exc}"), 400
