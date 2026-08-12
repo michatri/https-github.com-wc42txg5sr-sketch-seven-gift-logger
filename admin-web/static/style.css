@@ -91,6 +91,74 @@ h1 {
   width: min(520px, 100%);
 }
 
+.form-panel-wide {
+  width: min(720px, 100%);
+}
+
+.finger-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.finger-slot {
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.finger-slot h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--brand-deep);
+}
+
+.finger-status {
+  margin: 0;
+  min-height: 2.6rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.finger-status.ok {
+  color: var(--brand-deep);
+  font-weight: 600;
+}
+
+.finger-status.error {
+  color: #7a2424;
+  font-weight: 600;
+}
+
+.scan-btn {
+  border: 1px solid var(--brand);
+  background: #fff;
+  color: var(--brand-deep);
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.scan-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.scan-progress {
+  margin: 0;
+  color: var(--brand-deep);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .finger-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .hint {
   margin: 0 0 1rem;
   color: var(--muted);

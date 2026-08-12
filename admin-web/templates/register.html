@@ -3,15 +3,13 @@
 {% block heading %}ลงทะเบียนนักเรียน{% endblock %}
 
 {% block content %}
-<section class="form-panel">
+<section class="form-panel form-panel-wide">
   <p class="hint">
-    กรอกข้อมูลแล้วกดบันทึก จากนั้นสแกนทีละมือ:
-    <strong>นิ้วมือซ้าย 2 ครั้ง</strong> แล้วต่อด้วย
-    <strong>นิ้วมือขวา 2 ครั้ง</strong>
-    (ต้องคนละนิ้ว — ห้ามใช้นิ้วซ้ำ)
+    กรอกข้อมูลนักเรียน แล้วกดปุ่มอ่านลายนิ้วมือทีละข้าง
+    (แต่ละข้างวางนิ้ว <strong>2 ครั้ง</strong> และต้องคนละนิ้ว)
   </p>
 
-  <form class="register-form" method="post">
+  <form class="register-form" id="register-form" method="post">
     <label>
       รหัสนักเรียน
       <input type="text" name="student_code" value="{{ form.student_code }}" required autocomplete="off">
@@ -25,7 +23,103 @@
       <input type="text" name="last_name" value="{{ form.last_name }}" required autocomplete="off">
     </label>
 
-    <button type="submit">บันทึกและสแกน 2 นิ้ว</button>
+    <div class="finger-grid">
+      <div class="finger-slot" data-hand="left">
+        <h2>นิ้วมือซ้าย</h2>
+        <p class="finger-status" id="left-status">
+          {% if form.finger_left_id %}
+            พร้อมแล้ว (นิ้ว #{{ form.finger_left_id }})
+          {% else %}
+            ยังไม่ได้อ่านลายนิ้วมือ
+          {% endif %}
+        </p>
+        <input type="hidden" name="finger_left_id" id="finger_left_id" value="{{ form.finger_left_id }}">
+        <button type="button" class="scan-btn" id="scan-left-btn">อ่านลายนิ้วมือซ้าย</button>
+      </div>
+
+      <div class="finger-slot" data-hand="right">
+        <h2>นิ้วมือขวา</h2>
+        <p class="finger-status" id="right-status">
+          {% if form.finger_right_id %}
+            พร้อมแล้ว (นิ้ว #{{ form.finger_right_id }})
+          {% else %}
+            ยังไม่ได้อ่านลายนิ้วมือ
+          {% endif %}
+        </p>
+        <input type="hidden" name="finger_right_id" id="finger_right_id" value="{{ form.finger_right_id }}">
+        <button type="button" class="scan-btn" id="scan-right-btn">อ่านลายนิ้วมือขวา</button>
+      </div>
+    </div>
+
+    <p class="scan-progress" id="scan-progress" hidden>กำลังรอวางนิ้วบนเซนเซอร์...</p>
+
+    <button type="submit" id="save-btn">บันทึกลงทะเบียน</button>
   </form>
 </section>
+
+<script>
+(function () {
+  const leftInput = document.getElementById("finger_left_id");
+  const rightInput = document.getElementById("finger_right_id");
+  const leftStatus = document.getElementById("left-status");
+  const rightStatus = document.getElementById("right-status");
+  const leftBtn = document.getElementById("scan-left-btn");
+  const rightBtn = document.getElementById("scan-right-btn");
+  const progress = document.getElementById("scan-progress");
+  const form = document.getElementById("register-form");
+
+  function setBusy(busy) {
+    leftBtn.disabled = busy;
+    rightBtn.disabled = busy;
+    progress.hidden = !busy;
+  }
+
+  async function scan(hand) {
+    const isLeft = hand === "left";
+    const statusEl = isLeft ? leftStatus : rightStatus;
+    const inputEl = isLeft ? leftInput : rightInput;
+    const otherValue = isLeft ? rightInput.value : leftInput.value;
+    const exclude = otherValue ? [Number(otherValue)] : [];
+    const replaceId = inputEl.value ? Number(inputEl.value) : null;
+
+    statusEl.textContent = "กำลังอ่าน... วางนิ้ว 2 ครั้ง";
+    statusEl.classList.remove("ok", "error");
+    setBusy(true);
+
+    try {
+      const res = await fetch("{{ url_for('api_enroll_finger') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hand: hand,
+          exclude: exclude,
+          replace_id: replaceId
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "อ่านลายนิ้วมือไม่สำเร็จ");
+      }
+      inputEl.value = String(data.finger_id);
+      statusEl.textContent = data.message;
+      statusEl.classList.add("ok");
+    } catch (err) {
+      statusEl.textContent = err.message || "อ่านลายนิ้วมือไม่สำเร็จ";
+      statusEl.classList.add("error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  leftBtn.addEventListener("click", function () { scan("left"); });
+  rightBtn.addEventListener("click", function () { scan("right"); });
+
+  form.addEventListener("submit", function (event) {
+    if (!leftInput.value || !rightInput.value) {
+      event.preventDefault();
+      alert("กรุณากดอ่านลายนิ้วมือซ้ายและขวาให้ครบก่อนบันทึก");
+    }
+  });
+})();
+</script>
 {% endblock %}

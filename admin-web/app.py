@@ -8,7 +8,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from flask import Flask, flash, g, redirect, render_template, request, url_for
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, url_for
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB = BASE_DIR / "school.db"
@@ -528,21 +528,77 @@ def delete_student(student_id: int):
     return redirect(url_for("students"))
 
 
+@app.route("/api/enroll-finger", methods=["POST"])
+def api_enroll_finger():
+    data = request.get_json(silent=True) or {}
+    hand = (data.get("hand") or "").strip().lower()
+    if hand not in {"left", "right"}:
+        return jsonify(ok=False, message="hand ต้องเป็น left หรือ right"), 400
+
+    exclude_raw = data.get("exclude") or []
+    try:
+        exclude = {int(v) for v in exclude_raw if v is not None and str(v) != ""}
+    except (TypeError, ValueError):
+        return jsonify(ok=False, message="exclude ไม่ถูกต้อง"), 400
+
+    replace_id = data.get("replace_id")
+    try:
+        replace_id = int(replace_id) if replace_id is not None and str(replace_id) != "" else None
+    except (TypeError, ValueError):
+        return jsonify(ok=False, message="replace_id ไม่ถูกต้อง"), 400
+
+    label = "นิ้วมือซ้าย" if hand == "left" else "นิ้วมือขวา"
+    sensor = None
+    new_id = None
+    try:
+        sensor, new_id = enroll_fingerprint(
+            None,
+            label,
+            exclude_positions=exclude,
+        )
+        if replace_id is not None and replace_id != new_id:
+            delete_template(sensor, replace_id, strict=False)
+        return jsonify(
+            ok=True,
+            hand=hand,
+            finger_id=new_id,
+            message=f"{label}พร้อมแล้ว (นิ้ว #{new_id})",
+        )
+    except Exception as exc:
+        delete_template(sensor, new_id, strict=False)
+        return jsonify(ok=False, message=str(exc)), 400
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = {
         "student_code": "",
         "first_name": "",
         "last_name": "",
+        "finger_left_id": "",
+        "finger_right_id": "",
     }
 
     if request.method == "POST":
         form["student_code"] = (request.form.get("student_code") or "").strip()
         form["first_name"] = (request.form.get("first_name") or "").strip()
         form["last_name"] = (request.form.get("last_name") or "").strip()
+        form["finger_left_id"] = (request.form.get("finger_left_id") or "").strip()
+        form["finger_right_id"] = (request.form.get("finger_right_id") or "").strip()
 
         if not form["student_code"] or not form["first_name"] or not form["last_name"]:
             flash("กรุณากรอกรหัส ชื่อ และนามสกุลให้ครบ", "error")
+            return render_template("register.html", form=form), 400
+
+        try:
+            left_id = int(form["finger_left_id"])
+            right_id = int(form["finger_right_id"])
+        except ValueError:
+            flash("กรุณากดอ่านลายนิ้วมือซ้ายและขวาให้ครบก่อนบันทึก", "error")
+            return render_template("register.html", form=form), 400
+
+        if left_id == right_id:
+            flash("นิ้วซ้ายและขวาต้องเป็นคนละนิ้ว", "error")
             return render_template("register.html", form=form), 400
 
         db = get_db()
@@ -554,17 +610,22 @@ def register():
             flash("รหัสนักเรียนนี้มีอยู่แล้ว", "error")
             return render_template("register.html", form=form), 400
 
-        sensor = None
-        left_id = None
-        right_id = None
+        # Ensure these templates are not already bound to another student
+        for pos, label in ((left_id, "ซ้าย"), (right_id, "ขวา")):
+            owner = find_student_by_finger(db, pos)
+            if owner:
+                owner_name = full_name(
+                    owner["first_name"] or owner["name"],
+                    owner["last_name"] or "",
+                )
+                flash(
+                    f"นิ้ว{label} #{pos} ถูกใช้โดย {owner['student_code']} {owner_name} แล้ว",
+                    "error",
+                )
+                return render_template("register.html", form=form), 400
+
+        display_name = full_name(form["first_name"], form["last_name"])
         try:
-            sensor, left_id = enroll_fingerprint(None, "นิ้วมือซ้าย")
-            sensor, right_id = enroll_fingerprint(
-                sensor,
-                "นิ้วมือขวา",
-                exclude_positions={left_id},
-            )
-            display_name = full_name(form["first_name"], form["last_name"])
             db.execute(
                 """
                 INSERT INTO students(
@@ -585,8 +646,6 @@ def register():
             )
             db.commit()
         except Exception as exc:
-            delete_template(sensor, left_id)
-            delete_template(sensor, right_id)
             flash(f"ลงทะเบียนไม่สำเร็จ: {exc}", "error")
             return render_template("register.html", form=form), 400
 
