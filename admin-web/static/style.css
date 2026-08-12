@@ -629,10 +629,15 @@ tbody tr:hover {
   gap: 0.15rem;
 }
 
-.recent-list span,
-.recent-list small,
 .muted {
   color: var(--muted);
+}
+
+.error-text {
+  margin: 0;
+  color: #7a2424;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 @media (max-width: 900px) {

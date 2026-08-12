@@ -114,7 +114,7 @@
   async function scanFinger() {
     scanBtn.disabled = true;
     topupBtn.disabled = true;
-    showMessage("กำลังรอวางนิ้วบนเซนเซอร์...", true);
+    showMessage("กำลังรอวางนิ้วบนเซนเซอร์... กดแล้ววางนิ้วทันที", true);
     studentBox.innerHTML = '<p class="muted">กำลังอ่านลายนิ้วมือ...</p>';
     try {
       const res = await fetch("{{ url_for('api_identify_finger') }}", {
@@ -122,16 +122,24 @@
         headers: { "Content-Type": "application/json" },
         body: "{}"
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "สแกนไม่สำเร็จ");
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP " + res.status + ")");
+      }
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || ("สแกนไม่สำเร็จ (HTTP " + res.status + ")"));
+      }
       renderStudent(data.student);
       amountValue = "";
       renderAmount();
       showMessage("ระบุตัวตนแล้ว กรอกจำนวนเงินแล้วกดยืนยัน", true);
     } catch (err) {
       student = null;
-      studentBox.innerHTML = '<p class="muted">สแกนไม่สำเร็จ ลองใหม่</p>';
-      showMessage(err.message || "สแกนไม่สำเร็จ", false);
+      const msg = err.message || "สแกนไม่สำเร็จ";
+      studentBox.innerHTML = '<p class="error-text">' + msg + "</p>";
+      showMessage(msg, false);
     } finally {
       scanBtn.disabled = false;
       topupBtn.disabled = false;

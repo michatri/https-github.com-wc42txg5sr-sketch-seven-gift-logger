@@ -736,27 +736,47 @@ def api_identify_finger():
     db = get_db()
     try:
         sensor = open_sensor()
-        wait_for_finger(sensor, timeout_sec=30)
+        # Wait until finger is present
+        wait_for_finger(sensor, timeout_sec=40)
         sensor.convertImage(0x01)
         position, score = sensor.searchTemplate()
         if position < 0:
-            return jsonify(ok=False, message="ไม่พบลายนิ้วมือในระบบ"), 404
+            return jsonify(
+                ok=False,
+                message="ไม่พบลายนิ้วมือในระบบ — ลงทะเบียนนิ้วนี้ก่อน หรือลองนิ้วอีกข้าง",
+            ), 404
 
-        student = find_student_by_finger(db, position)
+        student = find_student_by_finger(db, int(position))
         if not student:
             return jsonify(
                 ok=False,
-                message=f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน",
+                message=(
+                    f"พบนิ้ว #{position} ในเซนเซอร์ แต่ยังไม่ได้ผูกกับนักเรียน "
+                    "(อาจเป็นนิ้วค้าง — รัน clear_orphan_fingers.py หรือลงทะเบียนใหม่)"
+                ),
             ), 404
 
-        hand = matched_hand_for(student, position)
-        payload = student_payload(student)
-        payload["finger_id"] = position
+        # Ensure balance column is readable even on older rows
+        balance_row = db.execute(
+            "SELECT balance FROM students WHERE id = ?",
+            (student["id"],),
+        ).fetchone()
+        student_dict = dict(student)
+        student_dict["balance"] = int((balance_row["balance"] if balance_row else 0) or 0)
+
+        hand = matched_hand_for(student, int(position))
+        payload = student_payload(student_dict)
+        payload["finger_id"] = int(position)
         payload["hand"] = hand
-        payload["score"] = score
+        payload["score"] = int(score)
         return jsonify(ok=True, student=payload)
+    except TimeoutError:
+        return jsonify(
+            ok=False,
+            message="หมดเวลารอวางนิ้ว — กดปุ่มแล้ววางนิ้วบนเซนเซอร์ภายใน 40 วินาที",
+        ), 408
     except Exception as exc:
-        return jsonify(ok=False, message=str(exc)), 400
+        return jsonify(ok=False, message=f"สแกนไม่สำเร็จ: {exc}"), 400
 
 
 @app.route("/api/student-by-code", methods=["POST"])
