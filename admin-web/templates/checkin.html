@@ -5,12 +5,10 @@
 {% block content %}
 <section class="form-panel form-panel-wide">
   <p class="hint">
-    กดปุ่มแล้ววางนิ้วทันที (ซ้ายหรือขวาที่ลงทะเบียนไว้)
+    เปิดหน้านี้แล้ววางนิ้วได้เลย ไม่ต้องกดปุ่ม
   </p>
 
-  <button type="button" class="scan-finger-btn" id="scan-btn">สแกนเพื่อเช็คเข้า</button>
-
-  <div class="student-box" id="status-box">
+  <div class="student-box ready-box" id="status-box">
     <p class="muted" id="status-text">กำลังเตรียมเซนเซอร์...</p>
   </div>
 
@@ -20,11 +18,10 @@
 
 <script>
 (function () {
-  const scanBtn = document.getElementById("scan-btn");
   const statusText = document.getElementById("status-text");
-  const statusBox = document.getElementById("status-box");
   const resultBox = document.getElementById("result-box");
   const messageEl = document.getElementById("message");
+  let busy = false;
 
   function showMessage(text, ok) {
     messageEl.hidden = false;
@@ -34,60 +31,62 @@
 
   function setStatus(text, isError) {
     statusText.textContent = text;
-    statusText.className = isError ? "error-text" : "muted";
+    statusText.className = isError ? "error-text" : "ready-text";
   }
 
   async function warmSensor() {
-    try {
-      const res = await fetch("{{ url_for('api_sensor_ready') }}", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}"
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.message || "เซนเซอร์ไม่พร้อม");
-      setStatus("R307 พร้อมแล้ว — กดปุ่มแล้ววางนิ้วได้เลย");
-      showMessage(data.message, true);
-    } catch (err) {
-      setStatus(err.message || "เซนเซอร์ยังไม่พร้อม", true);
-      showMessage(err.message || "เซนเซอร์ยังไม่พร้อม", false);
+    const res = await fetch("{{ url_for('api_sensor_ready') }}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.message || "เซนเซอร์ไม่พร้อม");
+    return data;
+  }
+
+  async function listenLoop() {
+    while (true) {
+      try {
+        if (busy) {
+          await new Promise(function (r) { setTimeout(r, 400); });
+          continue;
+        }
+        busy = true;
+        await warmSensor();
+        setStatus("R307 พร้อมแล้ว — วางนิ้วเพื่อเช็คเข้า");
+        showMessage("รอรับลายนิ้วมือ...", true);
+
+        const res = await fetch("{{ url_for('api_checkin') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
+        let data = null;
+        try { data = await res.json(); }
+        catch (e) { throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP " + res.status + ")"); }
+        if (!res.ok || !data.ok) throw new Error(data.message || "เช็คเข้าไม่สำเร็จ");
+
+        const r = data.result;
+        resultBox.hidden = false;
+        resultBox.innerHTML =
+          "<p><strong>" + r.student_code + "</strong> " + r.name + "</p>" +
+          "<p>มือ" + r.hand + " · นิ้ว #" + r.finger_id + " · คะแนน " + r.score + "</p>" +
+          "<p>เวลาเข้า: " + r.when + "</p>";
+        setStatus("เช็คเข้าสำเร็จ — พร้อมรับคนถัดไป");
+        showMessage(data.message + ": " + r.student_code + " " + r.name, true);
+        await new Promise(function (r) { setTimeout(r, 1200); });
+      } catch (err) {
+        setStatus(err.message || "รอสแกนต่อ...", true);
+        showMessage(err.message || "เกิดข้อผิดพลาด กำลังรอใหม่", false);
+        await new Promise(function (r) { setTimeout(r, 1500); });
+      } finally {
+        busy = false;
+      }
     }
   }
 
-  async function doCheckin() {
-    scanBtn.disabled = true;
-    resultBox.hidden = true;
-    setStatus("เซนเซอร์พร้อมรับลายนิ้วมือแล้ว — วางนิ้วได้เลย");
-    showMessage("กำลังรอวางนิ้วบน R307...", true);
-    try {
-      const res = await fetch("{{ url_for('api_checkin') }}", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}"
-      });
-      let data = null;
-      try { data = await res.json(); }
-      catch (e) { throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP " + res.status + ")"); }
-      if (!res.ok || !data.ok) throw new Error(data.message || "เช็คเข้าไม่สำเร็จ");
-
-      const r = data.result;
-      resultBox.hidden = false;
-      resultBox.innerHTML =
-        "<p><strong>" + r.student_code + "</strong> " + r.name + "</p>" +
-        "<p>มือ" + r.hand + " · นิ้ว #" + r.finger_id + " · คะแนน " + r.score + "</p>" +
-        "<p>เวลาเข้า: " + r.when + "</p>";
-      setStatus("เช็คเข้าสำเร็จ");
-      showMessage(data.message + ": " + r.student_code + " " + r.name, true);
-    } catch (err) {
-      setStatus(err.message || "เช็คเข้าไม่สำเร็จ", true);
-      showMessage(err.message || "เช็คเข้าไม่สำเร็จ", false);
-    } finally {
-      scanBtn.disabled = false;
-    }
-  }
-
-  scanBtn.addEventListener("click", doCheckin);
-  warmSensor();
+  listenLoop();
 })();
 </script>
 {% endblock %}

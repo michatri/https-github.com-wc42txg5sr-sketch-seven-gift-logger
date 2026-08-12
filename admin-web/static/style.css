@@ -658,10 +658,17 @@ tbody tr:hover {
   color: var(--muted);
 }
 
-.error-text {
+.ready-box {
+  min-height: 5rem;
+  display: flex;
+  align-items: center;
+}
+
+.ready-text {
   margin: 0;
-  color: #7a2424;
-  font-weight: 600;
+  color: var(--brand-deep);
+  font-size: 1.25rem;
+  font-weight: 700;
   line-height: 1.4;
 }
 
