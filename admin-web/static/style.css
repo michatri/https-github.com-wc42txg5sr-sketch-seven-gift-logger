@@ -389,9 +389,13 @@ h1 {
   font: inherit;
 }
 
-.filters input:focus {
-  outline: 2px solid var(--focus);
-  outline-offset: 1px;
+.filters select {
+  min-width: 12rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 0.7rem 0.8rem;
+  font: inherit;
 }
 
 .filters button,

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}ประวัติตัดเงิน · School Check-in{% endblock %}
+{% block heading %}ประวัติตัดเงิน (ซื้ออาหาร){% endblock %}
+
+{% block content %}
+<section class="summary summary-4">
+  <div>
+    <span class="label">ยอดตัด{% if date or shop_id or q %}ตามตัวกรอง{% else %}ทั้งหมด{% endif %}</span>
+    <strong>{{ '{:,}'.format(total_amount) }}</strong>
+    <span class="unit">บาท</span>
+  </div>
+  <div>
+    <span class="label">จำนวนรายการ</span>
+    <strong>{{ '{:,}'.format(purchase_count) }}</strong>
+    <span class="unit">รายการ</span>
+  </div>
+  <div>
+    <span class="label">ตัดเงินวันนี้</span>
+    <strong>{{ '{:,}'.format(today_amount) }}</strong>
+    <span class="unit">บาท</span>
+  </div>
+  <div>
+    <span class="label">รายการวันนี้</span>
+    <strong>{{ '{:,}'.format(today_count) }}</strong>
+    <span class="unit">รายการ</span>
+  </div>
+</section>
+
+<form class="filters" method="get">
+  <label>
+    ค้นหานักเรียน
+    <input type="search" name="q" value="{{ q }}" placeholder="รหัส หรือ ชื่อ">
+  </label>
+  <label>
+    ร้าน
+    <select name="shop_id">
+      <option value="">ทุกร้าน</option>
+      {% for shop in shops %}
+      <option value="{{ shop.id }}" {% if shop_id == shop.id|string %}selected{% endif %}>{{ shop.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    วันที่
+    <input type="date" name="date" value="{{ date }}">
+  </label>
+  <button type="submit">กรอง</button>
+  {% if q or date or shop_id %}
+  <a class="reset" href="{{ url_for('purchase_history') }}">ล้าง</a>
+  {% endif %}
+  <a class="reset" href="{{ url_for('purchase') }}">ไปหน้าตัดเงิน</a>
+</form>
+
+<section class="table-wrap">
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>เวลา</th>
+        <th>ร้าน</th>
+        <th>รหัส</th>
+        <th>ชื่อ</th>
+        <th>นามสกุล</th>
+        <th>จำนวนตัด</th>
+        <th>คงเหลือหลังตัด</th>
+        <th>มือ</th>
+        <th>นิ้ว #</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.created_at }}</td>
+        <td>{{ row.shop_name }}</td>
+        <td>{{ row.student_code }}</td>
+        <td>{{ row.first_name or row.name }}</td>
+        <td>{{ row.last_name or '-' }}</td>
+        <td>-{{ '{:,}'.format(row.amount) }} บาท</td>
+        <td>{{ '{:,}'.format(row.balance_after) }} บาท</td>
+        <td>
+          {% if row.matched_hand == 'left' %}ซ้าย
+          {% elif row.matched_hand == 'right' %}ขวา
+          {% else %}-{% endif %}
+        </td>
+        <td>{% if row.matched_finger_id is not none %}#{{ row.matched_finger_id }}{% else %}-{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">ยังไม่มีประวัติตัดเงิน</p>
+  {% endif %}
+</section>
+{% endblock %}

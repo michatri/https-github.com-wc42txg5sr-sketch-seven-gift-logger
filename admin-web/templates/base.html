@@ -23,6 +23,7 @@
         <a href="{{ url_for('checkin') }}" class="{% if request.endpoint == 'checkin' %}active{% endif %}">เช็คเข้า</a>
         <a href="{{ url_for('shops') }}" class="{% if request.endpoint in ('shops', 'new_shop', 'edit_shop') %}active{% endif %}">ร้านอาหาร</a>
         <a href="{{ url_for('purchase') }}" class="{% if request.endpoint == 'purchase' %}active{% endif %}">ตัดเงิน</a>
+        <a href="{{ url_for('purchase_history') }}" class="{% if request.endpoint == 'purchase_history' %}active{% endif %}">ประวัติตัดเงิน</a>
         <a href="{{ url_for('topup') }}" class="{% if request.endpoint == 'topup' %}active{% endif %}">เติมเงิน</a>
         <a href="{{ url_for('wallet_summary') }}" class="{% if request.endpoint == 'wallet_summary' %}active{% endif %}">สรุปยอด</a>
       </nav>

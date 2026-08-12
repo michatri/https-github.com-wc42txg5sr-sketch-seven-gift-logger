@@ -1257,6 +1257,95 @@ def purchase():
     return render_template("purchase.html", shops=active_shops, recent=recent)
 
 
+@app.route("/purchases")
+def purchase_history():
+    db = get_db()
+    q = (request.args.get("q") or "").strip()
+    date = (request.args.get("date") or "").strip()
+    shop_id = (request.args.get("shop_id") or "").strip()
+
+    shops = db.execute(
+        "SELECT id, name FROM shops ORDER BY name ASC"
+    ).fetchall()
+
+    where = ["1=1"]
+    params: list[object] = []
+    if q:
+        where.append(
+            "(s.student_code LIKE ? OR s.name LIKE ? OR s.first_name LIKE ? OR s.last_name LIKE ?)"
+        )
+        like = f"%{q}%"
+        params.extend([like, like, like, like])
+    if date:
+        where.append("date(p.created_at) = ?")
+        params.append(date)
+    if shop_id:
+        where.append("p.shop_id = ?")
+        params.append(int(shop_id))
+
+    where_sql = " AND ".join(where)
+
+    totals = db.execute(
+        f"""
+        SELECT
+          COALESCE(SUM(p.amount), 0) AS total_amount,
+          COUNT(p.id) AS purchase_count
+        FROM purchases p
+        JOIN students s ON s.id = p.student_id
+        JOIN shops sh ON sh.id = p.shop_id
+        WHERE {where_sql}
+        """,
+        params,
+    ).fetchone()
+
+    today = db.execute(
+        """
+        SELECT
+          COALESCE(SUM(amount), 0) AS total_amount,
+          COUNT(*) AS purchase_count
+        FROM purchases
+        WHERE date(created_at) = date('now','localtime')
+        """
+    ).fetchone()
+
+    rows = db.execute(
+        f"""
+        SELECT
+          p.id,
+          p.amount,
+          p.balance_after,
+          p.matched_hand,
+          p.matched_finger_id,
+          p.created_at,
+          s.student_code,
+          s.first_name,
+          s.last_name,
+          s.name,
+          sh.name AS shop_name
+        FROM purchases p
+        JOIN students s ON s.id = p.student_id
+        JOIN shops sh ON sh.id = p.shop_id
+        WHERE {where_sql}
+        ORDER BY p.id DESC
+        LIMIT 500
+        """,
+        params,
+    ).fetchall()
+
+    return render_template(
+        "purchase_history.html",
+        rows=rows,
+        shops=shops,
+        q=q,
+        date=date,
+        shop_id=shop_id,
+        total_amount=totals["total_amount"],
+        purchase_count=totals["purchase_count"],
+        today_amount=today["total_amount"],
+        today_count=today["purchase_count"],
+    )
+
+
 if __name__ == "__main__":
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "5000"))
