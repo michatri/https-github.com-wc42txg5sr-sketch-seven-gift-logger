@@ -121,6 +121,64 @@ def list_people() -> list[dict]:
     return people
 
 
+def get_person(person_id: str) -> dict:
+    person_id = validate_person_id(person_id)
+    person_dir = gallery_dir() / person_id
+    emb = person_dir / "embedding.npy"
+    if not person_dir.exists() or not emb.exists():
+        raise EnrollmentError("ไม่พบรายการนี้ในระบบ")
+    meta: dict = {"person_id": person_id, "display_name": person_id}
+    meta_path = person_dir / "meta.json"
+    if meta_path.exists():
+        try:
+            meta.update(json.loads(meta_path.read_text(encoding="utf-8")))
+        except json.JSONDecodeError:
+            pass
+    meta["has_preview"] = (person_dir / "preview.jpg").exists()
+    meta["preview_url"] = f"/api/people/{person_id}/preview"
+    return meta
+
+
+def update_person(
+    person_id: str,
+    display_name: str | None = None,
+    pipeline: FacePipeline | None = None,
+    image_bgr: np.ndarray | None = None,
+) -> dict:
+    """แก้ไขชื่อ และ/หรือ อัปเดตรูปใบหน้าของรายชื่อที่มีอยู่แล้ว."""
+    current = get_person(person_id)
+    new_name = (
+        display_name.strip()
+        if display_name is not None and display_name.strip()
+        else current.get("display_name") or person_id
+    )
+
+    if image_bgr is not None:
+        if pipeline is None:
+            raise EnrollmentError("ไม่สามารถอัปเดตรูปได้")
+        meta = enroll_from_ndarray(
+            pipeline,
+            image_bgr,
+            person_id,
+            display_name=new_name,
+        )
+        return meta
+
+    # อัปเดตเฉพาะชื่อ
+    person_dir = gallery_dir() / person_id
+    meta_path = person_dir / "meta.json"
+    meta = dict(current)
+    meta["person_id"] = person_id
+    meta["display_name"] = new_name
+    # อย่าเก็บ field ที่เป็น derived
+    meta.pop("has_preview", None)
+    meta.pop("preview_url", None)
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    meta["has_preview"] = (person_dir / "preview.jpg").exists()
+    meta["preview_url"] = f"/api/people/{person_id}/preview"
+    return meta
+
+
 def delete_person(person_id: str) -> None:
     person_id = validate_person_id(person_id)
     person_dir = gallery_dir() / person_id

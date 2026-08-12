@@ -64,6 +64,41 @@
       </section>
     </div>
   </div>
+
+  <div id="edit-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+      <div class="modal-head">
+        <h2 id="edit-title">แก้ไขรายชื่อ</h2>
+        <button type="button" class="btn-ghost modal-x" data-close-modal aria-label="ปิด">ปิด</button>
+      </div>
+      <form id="edit-form" class="fields">
+        <label>
+          รหัสนักเรียน
+          <input id="edit_person_id" type="text" readonly />
+        </label>
+        <label>
+          ชื่อที่แสดง
+          <input id="edit_display_name" name="display_name" type="text" required
+                 placeholder="เช่น สมชาย ใจดี" autocomplete="off" />
+        </label>
+        <label>
+          เปลี่ยนรูปใบหน้า (ถ้าต้องการ)
+          <input id="edit_image" name="image" type="file" accept="image/*" />
+        </label>
+        <div class="edit-preview">
+          <img id="edit_preview_img" alt="รูปปัจจุบัน" />
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn-primary">บันทึกการแก้ไข</button>
+          <button type="button" class="btn-secondary" id="btn-edit-camera">อัปเดตรูปจากกล้อง</button>
+          <button type="button" class="btn-ghost" data-close-modal>ยกเลิก</button>
+        </div>
+        <div id="edit-status" class="status" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
   <script src="/static/app.js"></script>
 </body>
 </html>

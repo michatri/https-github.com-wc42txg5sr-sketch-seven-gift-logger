@@ -25,7 +25,9 @@ from face_attendance.lib.gallery import (
     EnrollmentError,
     delete_person,
     enroll_from_ndarray,
+    get_person,
     list_people,
+    update_person,
 )
 
 WEB_DIR = Path(__file__).resolve().parent
@@ -71,6 +73,14 @@ def api_list_people() -> dict:
     return {"ok": True, "count": len(people), "people": people}
 
 
+@app.get("/api/people/{person_id}")
+def api_get_person(person_id: str) -> JSONResponse:
+    try:
+        return JSONResponse({"ok": True, "person": get_person(person_id)})
+    except EnrollmentError as exc:
+        return _json_error(exc, status=404)
+
+
 @app.get("/api/people/{person_id}/preview")
 def api_preview(person_id: str) -> Response:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", person_id):
@@ -81,6 +91,48 @@ def api_preview(person_id: str) -> Response:
     if not path.exists():
         raise HTTPException(status_code=404, detail="ไม่พบรูปตัวอย่าง")
     return Response(content=path.read_bytes(), media_type="image/jpeg")
+
+
+@app.patch("/api/people/{person_id}")
+async def api_update_person(
+    person_id: str,
+    display_name: str = Form(""),
+    from_camera: str = Form("0"),
+    image: UploadFile | None = File(None),
+) -> JSONResponse:
+    try:
+        image_bgr = None
+        use_camera = from_camera in {"1", "true", "True", "yes"}
+        if use_camera:
+            with _pipeline_lock:
+                image_bgr = snapshot_from_camera()
+                meta = update_person(
+                    person_id,
+                    display_name=display_name,
+                    pipeline=get_pipeline(),
+                    image_bgr=image_bgr,
+                )
+        elif image is not None and image.filename:
+            data = await image.read()
+            if not data:
+                raise EnrollmentError("ไม่พบไฟล์รูป")
+            image_bgr = _decode_upload(data)
+            with _pipeline_lock:
+                meta = update_person(
+                    person_id,
+                    display_name=display_name,
+                    pipeline=get_pipeline(),
+                    image_bgr=image_bgr,
+                )
+        else:
+            meta = update_person(person_id, display_name=display_name)
+        return JSONResponse({"ok": True, "person": meta})
+    except EnrollmentError as exc:
+        return _json_error(exc)
+    except RuntimeError as exc:
+        return _json_error(exc)
+    except Exception as exc:  # noqa: BLE001
+        return _json_error(exc, status=500)
 
 
 @app.delete("/api/people/{person_id}")
