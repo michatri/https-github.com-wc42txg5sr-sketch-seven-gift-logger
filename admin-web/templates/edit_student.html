@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}แก้ไขนักเรียน · School Check-in{% endblock %}
+{% block heading %}แก้ไขนักเรียน{% endblock %}
+
+{% block content %}
+<section class="form-panel">
+  <p class="hint">
+    แก้ไขรหัส ชื่อ นามสกุลได้ โดยลายนิ้วมือเดิม (นิ้ว #{{ student.finger_id }}) ยังใช้ได้ตามเดิม
+  </p>
+
+  <form class="register-form" method="post">
+    <label>
+      รหัสนักเรียน
+      <input type="text" name="student_code" value="{{ form.student_code }}" required autocomplete="off">
+    </label>
+    <label>
+      ชื่อ
+      <input type="text" name="first_name" value="{{ form.first_name }}" required autocomplete="off">
+    </label>
+    <label>
+      นามสกุล
+      <input type="text" name="last_name" value="{{ form.last_name }}" required autocomplete="off">
+    </label>
+
+    <div class="form-actions">
+      <button type="submit">บันทึก</button>
+      <a class="button-secondary" href="{{ url_for('students') }}">ยกเลิก</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

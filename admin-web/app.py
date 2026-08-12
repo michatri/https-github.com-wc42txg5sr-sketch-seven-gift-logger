@@ -232,6 +232,76 @@ def students():
     return render_template("students.html", rows=rows, q=q)
 
 
+def get_student_or_404(student_id: int):
+    row = get_db().execute(
+        """
+        SELECT id, student_code, first_name, last_name, name, finger_id, created_at
+        FROM students
+        WHERE id = ?
+        """,
+        (student_id,),
+    ).fetchone()
+    if not row:
+        return None
+    return row
+
+
+@app.route("/students/<int:student_id>/edit", methods=["GET", "POST"])
+def edit_student(student_id: int):
+    student = get_student_or_404(student_id)
+    if student is None:
+        flash("ไม่พบนักเรียน", "error")
+        return redirect(url_for("students"))
+
+    form = {
+        "student_code": student["student_code"],
+        "first_name": student["first_name"] or student["name"],
+        "last_name": student["last_name"] or "",
+    }
+
+    if request.method == "POST":
+        form["student_code"] = (request.form.get("student_code") or "").strip()
+        form["first_name"] = (request.form.get("first_name") or "").strip()
+        form["last_name"] = (request.form.get("last_name") or "").strip()
+
+        if not form["student_code"] or not form["first_name"] or not form["last_name"]:
+            flash("กรุณากรอกรหัส ชื่อ และนามสกุลให้ครบ", "error")
+            return render_template("edit_student.html", form=form, student=student), 400
+
+        db = get_db()
+        duplicate = db.execute(
+            """
+            SELECT id FROM students
+            WHERE student_code = ? AND id != ?
+            """,
+            (form["student_code"], student_id),
+        ).fetchone()
+        if duplicate:
+            flash("รหัสนักเรียนนี้มีอยู่แล้ว", "error")
+            return render_template("edit_student.html", form=form, student=student), 400
+
+        display_name = full_name(form["first_name"], form["last_name"])
+        db.execute(
+            """
+            UPDATE students
+            SET student_code = ?, name = ?, first_name = ?, last_name = ?
+            WHERE id = ?
+            """,
+            (
+                form["student_code"],
+                display_name,
+                form["first_name"],
+                form["last_name"],
+                student_id,
+            ),
+        )
+        db.commit()
+        flash(f"บันทึกแล้ว: {form['student_code']} {display_name}", "ok")
+        return redirect(url_for("students"))
+
+    return render_template("edit_student.html", form=form, student=student)
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = {

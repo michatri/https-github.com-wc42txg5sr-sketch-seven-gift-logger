@@ -133,6 +133,38 @@ h1 {
   cursor: pointer;
 }
 
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.form-actions button {
+  margin-top: 0;
+}
+
+.button-secondary {
+  display: inline-block;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.row-action {
+  color: var(--brand-deep);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.row-action:hover {
+  text-decoration: underline;
+}
+
 .nav a {
   text-decoration: none;
   color: var(--ink);
