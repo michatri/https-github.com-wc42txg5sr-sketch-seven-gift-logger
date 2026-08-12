@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}School Check-in{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div>
+        <p class="brand">School Check-in</p>
+        <h1>{% block heading %}{% endblock %}</h1>
+      </div>
+      <nav class="nav">
+        <a href="{{ url_for('attendance') }}" class="{% if request.endpoint == 'attendance' %}active{% endif %}">เวลาเข้า</a>
+        <a href="{{ url_for('students') }}" class="{% if request.endpoint == 'students' %}active{% endif %}">รายชื่อนักเรียน</a>
+      </nav>
+    </header>
+
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

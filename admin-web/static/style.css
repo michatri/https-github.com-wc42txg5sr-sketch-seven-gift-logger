@@ -1,0 +1,201 @@
+:root {
+  --bg: #eef3ef;
+  --bg-accent: #d9e6dc;
+  --ink: #163028;
+  --muted: #5b7268;
+  --panel: rgba(255, 252, 247, 0.92);
+  --line: #c3d2c8;
+  --brand: #0f6b4c;
+  --brand-deep: #0a4d37;
+  --focus: #1f8f68;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Bai Jamjuree", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, #f7fff8 0%, transparent 40%),
+    linear-gradient(160deg, var(--bg), var(--bg-accent));
+}
+
+.page {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: end;
+  margin-bottom: 1.5rem;
+}
+
+.brand {
+  margin: 0 0 0.35rem;
+  color: var(--brand);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 700;
+}
+
+.nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav a {
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+}
+
+.nav a.active,
+.nav a:hover {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.summary > div {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 1rem 1.1rem;
+}
+
+.summary .label {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+  font-size: 0.92rem;
+}
+
+.summary strong {
+  font-size: 1.8rem;
+  color: var(--brand-deep);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.filters label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.filters input {
+  min-width: 12rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+}
+
+.filters input:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.filters button,
+.filters .reset {
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: #fff;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.filters .reset {
+  background: transparent;
+  color: var(--brand-deep);
+}
+
+.table-wrap {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(15, 107, 76, 0.06);
+}
+
+tbody tr:hover {
+  background: rgba(15, 107, 76, 0.05);
+}
+
+.empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .top {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+  .filters input {
+    min-width: 0;
+    width: 100%;
+  }
+}
