@@ -151,26 +151,58 @@ def wait_for_finger_removed(sensor, timeout_sec: int = 20) -> None:
         time.sleep(0.15)
 
 
-def enroll_fingerprint(sensor=None, hand_label: str = "นิ้ว") -> tuple[object, int]:
+def enroll_fingerprint(
+    sensor=None,
+    hand_label: str = "นิ้ว",
+    exclude_positions: set[int] | None = None,
+) -> tuple[object, int]:
     if sensor is None:
         sensor = open_sensor()
+    exclude = {int(p) for p in (exclude_positions or set())}
 
-    wait_for_finger(sensor)
-    sensor.convertImage(0x01)
-    position, _score = sensor.searchTemplate()
-    if position >= 0:
-        raise RuntimeError(f"{hand_label}: ลายนิ้วมือนี้อยู่ในระบบแล้ว (นิ้ว #{position})")
+    for _attempt in range(3):
+        wait_for_finger(sensor)
+        sensor.convertImage(0x01)
+        position, _score = sensor.searchTemplate()
 
-    wait_for_finger_removed(sensor)
-    time.sleep(0.5)
-    wait_for_finger(sensor)
-    sensor.convertImage(0x02)
+        if position >= 0:
+            if int(position) in exclude:
+                raise RuntimeError(
+                    f"{hand_label}: นิ้วนี้เพิ่งสแกนไปแล้ว "
+                    "กรุณาใช้คนละนิ้ว (มือซ้าย 1 นิ้ว / มือขวา 1 นิ้ว)"
+                )
 
-    if sensor.compareCharacteristics() == 0:
-        raise RuntimeError(f"{hand_label}: ลายนิ้วมือสองครั้งไม่ตรงกัน กรุณาลองใหม่")
+            owner = find_student_by_finger(get_db(), int(position))
+            if owner is None:
+                # Orphan template left on sensor from old tests/deletes
+                delete_template(sensor, int(position), strict=False)
+                wait_for_finger_removed(sensor)
+                time.sleep(0.4)
+                continue
 
-    sensor.createTemplate()
-    return sensor, int(sensor.storeTemplate())
+            owner_name = full_name(
+                owner["first_name"] or owner["name"],
+                owner["last_name"] or "",
+            )
+            raise RuntimeError(
+                f"{hand_label}: นิ้วนี้เป็นของ {owner['student_code']} {owner_name} "
+                f"อยู่แล้ว (นิ้ว #{position})"
+            )
+
+        wait_for_finger_removed(sensor)
+        time.sleep(0.5)
+        wait_for_finger(sensor)
+        sensor.convertImage(0x02)
+
+        if sensor.compareCharacteristics() == 0:
+            raise RuntimeError(f"{hand_label}: ลายนิ้วมือสองครั้งไม่ตรงกัน กรุณาลองใหม่")
+
+        sensor.createTemplate()
+        return sensor, int(sensor.storeTemplate())
+
+    raise RuntimeError(
+        f"{hand_label}: พบนิ้วค้างในเซนเซอร์และลบให้แล้ว แต่ยังลงทะเบียนไม่สำเร็จ ลองใหม่"
+    )
 
 
 def delete_template(sensor, position: int | None, *, strict: bool = False) -> None:
@@ -404,10 +436,22 @@ def edit_student(student_id: int):
 
         try:
             if form["rescan_left"]:
-                sensor, new_left = enroll_fingerprint(sensor, "นิ้วมือซ้าย")
+                exclude = set()
+                if student["finger_right_id"] is not None:
+                    exclude.add(int(student["finger_right_id"]))
+                elif student["finger_id"] is not None:
+                    exclude.add(int(student["finger_id"]))
+                sensor, new_left = enroll_fingerprint(
+                    sensor, "นิ้วมือซ้าย", exclude_positions=exclude
+                )
             if form["rescan_right"]:
-                sensor, new_right = enroll_fingerprint(sensor, "นิ้วมือขวา")
-        except Exception as exc:
+                exclude = set()
+                current_left = new_left if new_left is not None else student["finger_left_id"]
+                if current_left is not None:
+                    exclude.add(int(current_left))
+                sensor, new_right = enroll_fingerprint(
+                    sensor, "นิ้วมือขวา", exclude_positions=exclude
+                )        except Exception as exc:
             delete_template(sensor, new_left)
             delete_template(sensor, new_right)
             flash(f"สแกนนิ้วไม่สำเร็จ: {exc}", "error")
@@ -514,7 +558,11 @@ def register():
         right_id = None
         try:
             sensor, left_id = enroll_fingerprint(None, "นิ้วมือซ้าย")
-            sensor, right_id = enroll_fingerprint(sensor, "นิ้วมือขวา")
+            sensor, right_id = enroll_fingerprint(
+                sensor,
+                "นิ้วมือขวา",
+                exclude_positions={left_id},
+            )
             display_name = full_name(form["first_name"], form["last_name"])
             db.execute(
                 """
