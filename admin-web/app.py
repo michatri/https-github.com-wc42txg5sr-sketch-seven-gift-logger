@@ -451,7 +451,8 @@ def edit_student(student_id: int):
                     exclude.add(int(current_left))
                 sensor, new_right = enroll_fingerprint(
                     sensor, "นิ้วมือขวา", exclude_positions=exclude
-                )        except Exception as exc:
+                )
+        except Exception as exc:
             delete_template(sensor, new_left)
             delete_template(sensor, new_right)
             flash(f"สแกนนิ้วไม่สำเร็จ: {exc}", "error")
