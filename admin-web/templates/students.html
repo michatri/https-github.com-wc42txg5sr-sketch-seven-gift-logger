@@ -25,6 +25,7 @@
         <th>นามสกุล</th>
         <th>นิ้วซ้าย</th>
         <th>นิ้วขวา</th>
+        <th>ยอดเงิน</th>
         <th>จำนวนครั้งเข้า</th>
         <th>เข้าล่าสุด</th>
         <th>ลงทะเบียนเมื่อ</th>
@@ -39,6 +40,7 @@
         <td>{{ row.last_name or '-' }}</td>
         <td>{% if row.finger_left_id is not none %}#{{ row.finger_left_id }}{% else %}-{% endif %}</td>
         <td>{% if row.finger_right_id is not none %}#{{ row.finger_right_id }}{% elif row.finger_id is not none %}#{{ row.finger_id }}{% else %}-{% endif %}</td>
+        <td>{{ '{:,}'.format(row.balance or 0) }} บาท</td>
         <td>{{ row.checkin_count }}</td>
         <td>{{ row.last_check_in or '-' }}</td>
         <td>{{ row.created_at }}</td>

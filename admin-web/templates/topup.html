@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}เติมเงิน · School Check-in{% endblock %}
+{% block heading %}เติมเงินเข้าระบบ{% endblock %}
+
+{% block content %}
+<section class="topup-layout">
+  <div class="topup-panel">
+    <div class="topup-fields">
+      <button type="button" class="field-card active" id="field-code" data-field="code">
+        <span class="field-label">รหัสนักเรียน</span>
+        <span class="field-value" id="code-display">—</span>
+      </button>
+      <button type="button" class="field-card" id="field-amount" data-field="amount">
+        <span class="field-label">จำนวนเงิน (บาท)</span>
+        <span class="field-value" id="amount-display">0</span>
+      </button>
+    </div>
+
+    <div class="student-box" id="student-box">
+      <p class="muted">ยังไม่ได้เลือกนักเรียน</p>
+    </div>
+
+    <div class="numpad" id="numpad" aria-label="Numeric keyboard">
+      <button type="button" data-key="1">1</button>
+      <button type="button" data-key="2">2</button>
+      <button type="button" data-key="3">3</button>
+      <button type="button" data-key="4">4</button>
+      <button type="button" data-key="5">5</button>
+      <button type="button" data-key="6">6</button>
+      <button type="button" data-key="7">7</button>
+      <button type="button" data-key="8">8</button>
+      <button type="button" data-key="9">9</button>
+      <button type="button" data-key="clear" class="key-muted">C</button>
+      <button type="button" data-key="0">0</button>
+      <button type="button" data-key="back" class="key-muted">⌫</button>
+    </div>
+
+    <div class="topup-actions">
+      <button type="button" class="btn-secondary" id="lookup-btn">ค้นหานักเรียน</button>
+      <button type="button" class="btn-primary" id="topup-btn">ยืนยันเติมเงิน</button>
+    </div>
+
+    <p class="topup-message" id="topup-message" hidden></p>
+  </div>
+
+  <aside class="topup-side">
+    <h2>รายการเติมล่าสุด</h2>
+    {% if recent %}
+    <ul class="recent-list">
+      {% for row in recent %}
+      <li>
+        <strong>{{ row.student_code }}</strong>
+        {{ row.first_name or row.name }} {{ row.last_name or '' }}
+        <span>+{{ row.amount }} บาท → เหลือ {{ row.balance_after }}</span>
+        <small>{{ row.created_at }}</small>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">ยังไม่มีรายการเติมเงิน</p>
+    {% endif %}
+  </aside>
+</section>
+
+<script>
+(function () {
+  let activeField = "code";
+  let codeValue = "";
+  let amountValue = "";
+  let student = null;
+
+  const codeDisplay = document.getElementById("code-display");
+  const amountDisplay = document.getElementById("amount-display");
+  const studentBox = document.getElementById("student-box");
+  const messageEl = document.getElementById("topup-message");
+  const fieldCode = document.getElementById("field-code");
+  const fieldAmount = document.getElementById("field-amount");
+  const lookupBtn = document.getElementById("lookup-btn");
+  const topupBtn = document.getElementById("topup-btn");
+
+  function showMessage(text, ok) {
+    messageEl.hidden = false;
+    messageEl.textContent = text;
+    messageEl.className = "topup-message " + (ok ? "ok" : "error");
+  }
+
+  function render() {
+    codeDisplay.textContent = codeValue || "—";
+    amountDisplay.textContent = amountValue ? Number(amountValue).toLocaleString("th-TH") : "0";
+    fieldCode.classList.toggle("active", activeField === "code");
+    fieldAmount.classList.toggle("active", activeField === "amount");
+  }
+
+  function setActive(field) {
+    activeField = field;
+    render();
+  }
+
+  function appendDigit(digit) {
+    if (activeField === "code") {
+      if (codeValue.length >= 20) return;
+      codeValue += digit;
+      student = null;
+      studentBox.innerHTML = '<p class="muted">ยังไม่ได้ค้นหานักเรียน</p>';
+    } else {
+      if (amountValue.length >= 6) return;
+      if (amountValue === "0") amountValue = digit;
+      else amountValue += digit;
+    }
+    render();
+  }
+
+  function clearActive() {
+    if (activeField === "code") {
+      codeValue = "";
+      student = null;
+      studentBox.innerHTML = '<p class="muted">ยังไม่ได้เลือกนักเรียน</p>';
+    } else {
+      amountValue = "";
+    }
+    render();
+  }
+
+  function backspace() {
+    if (activeField === "code") {
+      codeValue = codeValue.slice(0, -1);
+      student = null;
+      studentBox.innerHTML = '<p class="muted">ยังไม่ได้ค้นหานักเรียน</p>';
+    } else {
+      amountValue = amountValue.slice(0, -1);
+    }
+    render();
+  }
+
+  function renderStudent(s) {
+    student = s;
+    studentBox.innerHTML =
+      '<p class="student-name"><strong>' + s.student_code + "</strong> " + s.name + "</p>" +
+      '<p class="student-balance">ยอดคงเหลือ <strong>' + Number(s.balance).toLocaleString("th-TH") + "</strong> บาท</p>";
+  }
+
+  async function lookupStudent() {
+    if (!codeValue) {
+      showMessage("กรุณาใส่รหัสนักเรียนด้วยคีย์บอร์ดตัวเลข", false);
+      setActive("code");
+      return;
+    }
+    lookupBtn.disabled = true;
+    try {
+      const res = await fetch("{{ url_for('api_student_by_code') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_code: codeValue })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "ค้นหาไม่สำเร็จ");
+      renderStudent(data.student);
+      showMessage("พบนักเรียนแล้ว กรอกจำนวนเงินได้", true);
+      setActive("amount");
+    } catch (err) {
+      student = null;
+      studentBox.innerHTML = '<p class="muted">ไม่พบนักเรียน</p>';
+      showMessage(err.message || "ค้นหาไม่สำเร็จ", false);
+    } finally {
+      lookupBtn.disabled = false;
+    }
+  }
+
+  async function confirmTopup() {
+    if (!student) {
+      showMessage("กรุณาค้นหานักเรียนก่อน", false);
+      return;
+    }
+    const amount = Number(amountValue || "0");
+    if (!amount || amount <= 0) {
+      showMessage("กรุณาใส่จำนวนเงิน", false);
+      setActive("amount");
+      return;
+    }
+    topupBtn.disabled = true;
+    try {
+      const res = await fetch("{{ url_for('api_topup') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_code: student.student_code, amount: amount })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "เติมเงินไม่สำเร็จ");
+      renderStudent(data.student);
+      amountValue = "";
+      render();
+      showMessage(data.message + " ยอดใหม่ " + data.balance_after + " บาท", true);
+      setTimeout(function () { window.location.reload(); }, 900);
+    } catch (err) {
+      showMessage(err.message || "เติมเงินไม่สำเร็จ", false);
+    } finally {
+      topupBtn.disabled = false;
+    }
+  }
+
+  fieldCode.addEventListener("click", function () { setActive("code"); });
+  fieldAmount.addEventListener("click", function () { setActive("amount"); });
+  lookupBtn.addEventListener("click", lookupStudent);
+  topupBtn.addEventListener("click", confirmTopup);
+
+  document.getElementById("numpad").addEventListener("click", function (event) {
+    const btn = event.target.closest("button[data-key]");
+    if (!btn) return;
+    const key = btn.getAttribute("data-key");
+    if (key === "clear") clearActive();
+    else if (key === "back") backspace();
+    else appendDigit(key);
+  });
+
+  render();
+})();
+</script>
+{% endblock %}

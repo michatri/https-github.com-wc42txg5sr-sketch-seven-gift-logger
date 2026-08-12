@@ -44,6 +44,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
           finger_id INTEGER UNIQUE,
           finger_left_id INTEGER UNIQUE,
           finger_right_id INTEGER UNIQUE,
+          balance INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
         );
         CREATE TABLE IF NOT EXISTS attendance (
@@ -52,6 +53,15 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
           check_in_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
           matched_hand TEXT,
           matched_finger_id INTEGER,
+          FOREIGN KEY(student_id) REFERENCES students(id)
+        );
+        CREATE TABLE IF NOT EXISTS topups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          student_id INTEGER NOT NULL,
+          amount INTEGER NOT NULL,
+          balance_after INTEGER NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
           FOREIGN KEY(student_id) REFERENCES students(id)
         );
         """
@@ -67,6 +77,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE students ADD COLUMN finger_left_id INTEGER")
     if "finger_right_id" not in student_cols:
         conn.execute("ALTER TABLE students ADD COLUMN finger_right_id INTEGER")
+    if "balance" not in student_cols:
+        conn.execute("ALTER TABLE students ADD COLUMN balance INTEGER NOT NULL DEFAULT 0")
     if "matched_hand" not in attendance_cols:
         conn.execute("ALTER TABLE attendance ADD COLUMN matched_hand TEXT")
     if "matched_finger_id" not in attendance_cols:
@@ -353,6 +365,7 @@ def students():
             s.finger_id,
             s.finger_left_id,
             s.finger_right_id,
+            s.balance,
             s.created_at,
             COUNT(a.id) AS checkin_count,
             MAX(a.check_in_at) AS last_check_in
@@ -512,6 +525,7 @@ def delete_student(student_id: int):
         return redirect(url_for("students"))
 
     db = get_db()
+    db.execute("DELETE FROM topups WHERE student_id = ?", (student_id,))
     db.execute("DELETE FROM attendance WHERE student_id = ?", (student_id,))
     db.execute("DELETE FROM students WHERE id = ?", (student_id,))
     db.commit()
@@ -704,6 +718,110 @@ def checkin():
             flash(f"เช็คเข้าไม่สำเร็จ: {exc}", "error")
 
     return render_template("checkin.html", result=result)
+
+
+def student_payload(row) -> dict:
+    return {
+        "id": row["id"],
+        "student_code": row["student_code"],
+        "first_name": row["first_name"] or row["name"],
+        "last_name": row["last_name"] or "",
+        "name": full_name(row["first_name"] or row["name"], row["last_name"] or ""),
+        "balance": int(row["balance"] or 0),
+    }
+
+
+@app.route("/api/student-by-code", methods=["POST"])
+def api_student_by_code():
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("student_code") or "").strip()
+    if not code:
+        return jsonify(ok=False, message="กรุณาใส่รหัสนักเรียน"), 400
+
+    row = get_db().execute(
+        """
+        SELECT id, student_code, first_name, last_name, name, balance
+        FROM students
+        WHERE student_code = ?
+        """,
+        (code,),
+    ).fetchone()
+    if not row:
+        return jsonify(ok=False, message=f"ไม่พบรหัสนักเรียน {code}"), 404
+    return jsonify(ok=True, student=student_payload(row))
+
+
+@app.route("/api/topup", methods=["POST"])
+def api_topup():
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("student_code") or "").strip()
+    try:
+        amount = int(data.get("amount"))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, message="จำนวนเงินไม่ถูกต้อง"), 400
+
+    if not code:
+        return jsonify(ok=False, message="กรุณาใส่รหัสนักเรียน"), 400
+    if amount <= 0:
+        return jsonify(ok=False, message="จำนวนเงินต้องมากกว่า 0"), 400
+    if amount > 100000:
+        return jsonify(ok=False, message="จำนวนเงินสูงเกินไป"), 400
+
+    db = get_db()
+    row = db.execute(
+        """
+        SELECT id, student_code, first_name, last_name, name, balance
+        FROM students
+        WHERE student_code = ?
+        """,
+        (code,),
+    ).fetchone()
+    if not row:
+        return jsonify(ok=False, message=f"ไม่พบรหัสนักเรียน {code}"), 404
+
+    new_balance = int(row["balance"] or 0) + amount
+    db.execute("UPDATE students SET balance = ? WHERE id = ?", (new_balance, row["id"]))
+    db.execute(
+        """
+        INSERT INTO topups(student_id, amount, balance_after, note)
+        VALUES (?, ?, ?, ?)
+        """,
+        (row["id"], amount, new_balance, "web-topup"),
+    )
+    db.commit()
+
+    student = student_payload(row)
+    student["balance"] = new_balance
+    when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
+    return jsonify(
+        ok=True,
+        message=f"เติมเงินสำเร็จ +{amount} บาท",
+        student=student,
+        amount=amount,
+        balance_after=new_balance,
+        when=when,
+    )
+
+
+@app.route("/topup")
+def topup():
+    recent = get_db().execute(
+        """
+        SELECT
+          t.amount,
+          t.balance_after,
+          t.created_at,
+          s.student_code,
+          s.first_name,
+          s.last_name,
+          s.name
+        FROM topups t
+        JOIN students s ON s.id = t.student_id
+        ORDER BY t.id DESC
+        LIMIT 10
+        """
+    ).fetchall()
+    return render_template("topup.html", recent=recent)
 
 
 if __name__ == "__main__":
