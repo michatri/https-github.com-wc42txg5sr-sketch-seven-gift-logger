@@ -64,9 +64,9 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     if "last_name" not in student_cols:
         conn.execute("ALTER TABLE students ADD COLUMN last_name TEXT NOT NULL DEFAULT ''")
     if "finger_left_id" not in student_cols:
-        conn.execute("ALTER TABLE students ADD COLUMN finger_left_id INTEGER UNIQUE")
+        conn.execute("ALTER TABLE students ADD COLUMN finger_left_id INTEGER")
     if "finger_right_id" not in student_cols:
-        conn.execute("ALTER TABLE students ADD COLUMN finger_right_id INTEGER UNIQUE")
+        conn.execute("ALTER TABLE students ADD COLUMN finger_right_id INTEGER")
     if "matched_hand" not in attendance_cols:
         conn.execute("ALTER TABLE attendance ADD COLUMN matched_hand TEXT")
     if "matched_finger_id" not in attendance_cols:
