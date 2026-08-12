@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'edit' %}แก้ไขร้าน{% else %}เพิ่มร้าน{% endif %} · School Check-in{% endblock %}
+{% block heading %}{% if mode == 'edit' %}แก้ไขร้านอาหาร{% else %}เพิ่มร้านอาหาร{% endif %}{% endblock %}
+
+{% block content %}
+<section class="form-panel">
+  <form class="register-form" method="post">
+    <label>
+      ชื่อร้าน
+      <input type="text" name="name" value="{{ form.name }}" required autocomplete="off">
+    </label>
+    <label>
+      หมายเหตุ
+      <input type="text" name="note" value="{{ form.note }}" autocomplete="off" placeholder="เช่น โรงอาหารอาคาร A">
+    </label>
+    <label class="check-row">
+      <input type="checkbox" name="is_active" value="1" {% if form.is_active %}checked{% endif %}>
+      เปิดใช้งานร้านนี้ (ใช้ตัดเงินได้)
+    </label>
+    <div class="form-actions">
+      <button type="submit">บันทึก</button>
+      <a class="button-secondary" href="{{ url_for('shops') }}">ยกเลิก</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

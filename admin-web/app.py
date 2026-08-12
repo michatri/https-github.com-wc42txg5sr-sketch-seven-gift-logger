@@ -64,6 +64,25 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
           created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
           FOREIGN KEY(student_id) REFERENCES students(id)
         );
+        CREATE TABLE IF NOT EXISTS shops (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT UNIQUE NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+        CREATE TABLE IF NOT EXISTS purchases (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          student_id INTEGER NOT NULL,
+          shop_id INTEGER NOT NULL,
+          amount INTEGER NOT NULL,
+          balance_after INTEGER NOT NULL,
+          matched_hand TEXT,
+          matched_finger_id INTEGER,
+          created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+          FOREIGN KEY(student_id) REFERENCES students(id),
+          FOREIGN KEY(shop_id) REFERENCES shops(id)
+        );
         """
     )
     student_cols = {row["name"] for row in conn.execute("PRAGMA table_info(students)")}
@@ -525,6 +544,7 @@ def delete_student(student_id: int):
         return redirect(url_for("students"))
 
     db = get_db()
+    db.execute("DELETE FROM purchases WHERE student_id = ?", (student_id,))
     db.execute("DELETE FROM topups WHERE student_id = ?", (student_id,))
     db.execute("DELETE FROM attendance WHERE student_id = ?", (student_id,))
     db.execute("DELETE FROM students WHERE id = ?", (student_id,))
@@ -986,6 +1006,255 @@ def wallet_summary():
         today_topup=today_topup["total_topup"],
         today_topup_count=today_topup["topup_count"],
     )
+
+
+def get_shop_or_none(shop_id: int):
+    return get_db().execute(
+        "SELECT id, name, note, is_active, created_at FROM shops WHERE id = ?",
+        (shop_id,),
+    ).fetchone()
+
+
+@app.route("/shops")
+def shops():
+    q = (request.args.get("q") or "").strip()
+    sql = """
+        SELECT
+          sh.id,
+          sh.name,
+          sh.note,
+          sh.is_active,
+          sh.created_at,
+          COUNT(p.id) AS purchase_count,
+          COALESCE(SUM(p.amount), 0) AS total_sales
+        FROM shops sh
+        LEFT JOIN purchases p ON p.shop_id = sh.id
+        WHERE 1=1
+    """
+    params: list[object] = []
+    if q:
+        sql += " AND (sh.name LIKE ? OR sh.note LIKE ?)"
+        like = f"%{q}%"
+        params.extend([like, like])
+    sql += " GROUP BY sh.id ORDER BY sh.is_active DESC, sh.name ASC"
+    rows = get_db().execute(sql, params).fetchall()
+    return render_template("shops.html", rows=rows, q=q)
+
+
+@app.route("/shops/new", methods=["GET", "POST"])
+def new_shop():
+    form = {"name": "", "note": "", "is_active": True}
+    if request.method == "POST":
+        form["name"] = (request.form.get("name") or "").strip()
+        form["note"] = (request.form.get("note") or "").strip()
+        form["is_active"] = request.form.get("is_active") == "1"
+        if not form["name"]:
+            flash("กรุณาใส่ชื่อร้าน", "error")
+            return render_template("shop_form.html", form=form, mode="new"), 400
+
+        db = get_db()
+        exists = db.execute(
+            "SELECT id FROM shops WHERE name = ?",
+            (form["name"],),
+        ).fetchone()
+        if exists:
+            flash("ชื่อร้านนี้มีอยู่แล้ว", "error")
+            return render_template("shop_form.html", form=form, mode="new"), 400
+
+        db.execute(
+            "INSERT INTO shops(name, note, is_active) VALUES (?, ?, ?)",
+            (form["name"], form["note"], 1 if form["is_active"] else 0),
+        )
+        db.commit()
+        flash(f"เพิ่มร้านแล้ว: {form['name']}", "ok")
+        return redirect(url_for("shops"))
+
+    return render_template("shop_form.html", form=form, mode="new")
+
+
+@app.route("/shops/<int:shop_id>/edit", methods=["GET", "POST"])
+def edit_shop(shop_id: int):
+    shop = get_shop_or_none(shop_id)
+    if shop is None:
+        flash("ไม่พบร้าน", "error")
+        return redirect(url_for("shops"))
+
+    form = {
+        "name": shop["name"],
+        "note": shop["note"] or "",
+        "is_active": bool(shop["is_active"]),
+    }
+    if request.method == "POST":
+        form["name"] = (request.form.get("name") or "").strip()
+        form["note"] = (request.form.get("note") or "").strip()
+        form["is_active"] = request.form.get("is_active") == "1"
+        if not form["name"]:
+            flash("กรุณาใส่ชื่อร้าน", "error")
+            return render_template(
+                "shop_form.html", form=form, mode="edit", shop=shop
+            ), 400
+
+        db = get_db()
+        duplicate = db.execute(
+            "SELECT id FROM shops WHERE name = ? AND id != ?",
+            (form["name"], shop_id),
+        ).fetchone()
+        if duplicate:
+            flash("ชื่อร้านนี้มีอยู่แล้ว", "error")
+            return render_template(
+                "shop_form.html", form=form, mode="edit", shop=shop
+            ), 400
+
+        db.execute(
+            """
+            UPDATE shops
+            SET name = ?, note = ?, is_active = ?
+            WHERE id = ?
+            """,
+            (form["name"], form["note"], 1 if form["is_active"] else 0, shop_id),
+        )
+        db.commit()
+        flash(f"บันทึกร้านแล้ว: {form['name']}", "ok")
+        return redirect(url_for("shops"))
+
+    return render_template("shop_form.html", form=form, mode="edit", shop=shop)
+
+
+@app.route("/shops/<int:shop_id>/delete", methods=["POST"])
+def delete_shop(shop_id: int):
+    shop = get_shop_or_none(shop_id)
+    if shop is None:
+        flash("ไม่พบร้าน", "error")
+        return redirect(url_for("shops"))
+
+    db = get_db()
+    purchase_count = db.execute(
+        "SELECT COUNT(*) AS c FROM purchases WHERE shop_id = ?",
+        (shop_id,),
+    ).fetchone()["c"]
+    if purchase_count:
+        # Soft-disable instead of hard delete to keep sales history
+        db.execute("UPDATE shops SET is_active = 0 WHERE id = ?", (shop_id,))
+        db.commit()
+        flash(
+            f"ร้าน {shop['name']} มีประวัติขายอยู่ จึงปิดใช้งานแทนการลบ",
+            "ok",
+        )
+    else:
+        db.execute("DELETE FROM shops WHERE id = ?", (shop_id,))
+        db.commit()
+        flash(f"ลบร้านแล้ว: {shop['name']}", "ok")
+    return redirect(url_for("shops"))
+
+
+@app.route("/api/purchase", methods=["POST"])
+def api_purchase():
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("student_code") or "").strip()
+    try:
+        shop_id = int(data.get("shop_id"))
+        amount = int(data.get("amount"))
+    except (TypeError, ValueError):
+        return jsonify(ok=False, message="ข้อมูลร้านหรือจำนวนเงินไม่ถูกต้อง"), 400
+
+    if not code:
+        return jsonify(ok=False, message="กรุณาสแกนลายนิ้วมือก่อน"), 400
+    if amount <= 0:
+        return jsonify(ok=False, message="จำนวนเงินต้องมากกว่า 0"), 400
+    if amount > 100000:
+        return jsonify(ok=False, message="จำนวนเงินสูงเกินไป"), 400
+
+    db = get_db()
+    shop = db.execute(
+        "SELECT id, name, is_active FROM shops WHERE id = ?",
+        (shop_id,),
+    ).fetchone()
+    if not shop or not shop["is_active"]:
+        return jsonify(ok=False, message="ไม่พบร้านที่ใช้งานได้"), 404
+
+    row = db.execute(
+        """
+        SELECT id, student_code, first_name, last_name, name, balance
+        FROM students
+        WHERE student_code = ?
+        """,
+        (code,),
+    ).fetchone()
+    if not row:
+        return jsonify(ok=False, message=f"ไม่พบรหัสนักเรียน {code}"), 404
+
+    balance = int(row["balance"] or 0)
+    if balance < amount:
+        return jsonify(
+            ok=False,
+            message=f"ยอดเงินไม่พอ (คงเหลือ {balance} บาท)",
+            balance=balance,
+        ), 400
+
+    new_balance = balance - amount
+    hand = data.get("hand")
+    finger_id = data.get("finger_id")
+    try:
+        finger_id = int(finger_id) if finger_id is not None else None
+    except (TypeError, ValueError):
+        finger_id = None
+
+    db.execute("UPDATE students SET balance = ? WHERE id = ?", (new_balance, row["id"]))
+    db.execute(
+        """
+        INSERT INTO purchases(
+          student_id, shop_id, amount, balance_after, matched_hand, matched_finger_id
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (row["id"], shop_id, amount, new_balance, hand, finger_id),
+    )
+    db.commit()
+
+    student = student_payload(row)
+    student["balance"] = new_balance
+    when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
+    return jsonify(
+        ok=True,
+        message=f"ตัดเงินสำเร็จ -{amount} บาท ที่ร้าน {shop['name']}",
+        student=student,
+        shop={"id": shop["id"], "name": shop["name"]},
+        amount=amount,
+        balance_after=new_balance,
+        when=when,
+    )
+
+
+@app.route("/purchase")
+def purchase():
+    db = get_db()
+    active_shops = db.execute(
+        """
+        SELECT id, name, note
+        FROM shops
+        WHERE is_active = 1
+        ORDER BY name ASC
+        """
+    ).fetchall()
+    recent = db.execute(
+        """
+        SELECT
+          p.amount,
+          p.balance_after,
+          p.created_at,
+          s.student_code,
+          s.first_name,
+          s.last_name,
+          s.name,
+          sh.name AS shop_name
+        FROM purchases p
+        JOIN students s ON s.id = p.student_id
+        JOIN shops sh ON sh.id = p.shop_id
+        ORDER BY p.id DESC
+        LIMIT 10
+        """
+    ).fetchall()
+    return render_template("purchase.html", shops=active_shops, recent=recent)
 
 
 if __name__ == "__main__":
