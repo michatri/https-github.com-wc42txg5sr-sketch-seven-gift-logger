@@ -173,13 +173,58 @@ def enroll_fingerprint(sensor=None, hand_label: str = "นิ้ว") -> tuple[o
     return sensor, int(sensor.storeTemplate())
 
 
-def delete_template(sensor, position: int | None) -> None:
+def delete_template(sensor, position: int | None, *, strict: bool = False) -> None:
     if sensor is None or position is None:
         return
-    try:
-        sensor.deleteTemplate(position)
-    except Exception:
-        pass
+    last_error: Exception | None = None
+    for _ in range(3):
+        try:
+            sensor.deleteTemplate(int(position))
+            return
+        except Exception as exc:
+            msg = str(exc).lower()
+            # Slot already empty counts as successfully removed
+            if any(
+                token in msg
+                for token in (
+                    "not found",
+                    "no template",
+                    "does not exist",
+                    "invalid",
+                    "empty",
+                    "bad location",
+                    "pageid",
+                )
+            ):
+                return
+            last_error = exc
+            time.sleep(0.2)
+    if strict:
+        raise RuntimeError(f"ลบลายนิ้วมือ #{position} จากเซนเซอร์ไม่สำเร็จ: {last_error}")
+
+
+def purge_student_fingerprints(student) -> list[int]:
+    """Delete every fingerprint template for this student from the sensor."""
+    positions = sorted(
+        {
+            int(p)
+            for p in (
+                student["finger_left_id"],
+                student["finger_right_id"],
+                student["finger_id"],
+            )
+            if p is not None
+        }
+    )
+    if not positions:
+        return []
+
+    sensor = open_sensor()
+    deleted: list[int] = []
+    for pos in positions:
+        delete_template(sensor, pos, strict=True)
+        deleted.append(pos)
+    return deleted
 
 
 def find_student_by_finger(db: sqlite3.Connection, finger_pos: int):
@@ -409,34 +454,32 @@ def delete_student(student_id: int):
         flash("ไม่พบนักเรียน", "error")
         return redirect(url_for("students"))
 
-    left_id = student["finger_left_id"]
-    right_id = student["finger_right_id"]
-    legacy_id = student["finger_id"]
-    positions = {p for p in (left_id, right_id, legacy_id) if p is not None}
+    display = full_name(student["first_name"] or student["name"], student["last_name"] or "")
 
-    sensor_error = None
     try:
-        if positions:
-            sensor = open_sensor()
-            for pos in positions:
-                delete_template(sensor, pos)
+        deleted_fingers = purge_student_fingerprints(student)
     except Exception as exc:
-        sensor_error = str(exc)
+        flash(
+            f"ยังไม่ลบ {student['student_code']} {display} "
+            f"เพราะลบลายนิ้วมือจากเซนเซอร์ไม่สำเร็จ: {exc}",
+            "error",
+        )
+        return redirect(url_for("students"))
 
     db = get_db()
     db.execute("DELETE FROM attendance WHERE student_id = ?", (student_id,))
     db.execute("DELETE FROM students WHERE id = ?", (student_id,))
     db.commit()
 
-    display = full_name(student["first_name"] or student["name"], student["last_name"] or "")
-    if sensor_error:
+    if deleted_fingers:
+        fingers = ", ".join(f"#{p}" for p in deleted_fingers)
         flash(
-            f"ลบรายชื่อแล้ว: {student['student_code']} {display} "
-            f"(แต่ลบนิ้วในเซนเซอร์ไม่ครบ: {sensor_error})",
-            "error",
+            f"ลบครบแล้ว: {student['student_code']} {display} "
+            f"(ข้อมูล + ประวัติเข้า + ลายนิ้วมือ {fingers})",
+            "ok",
         )
     else:
-        flash(f"ลบแล้ว: {student['student_code']} {display}", "ok")
+        flash(f"ลบครบแล้ว: {student['student_code']} {display}", "ok")
     return redirect(url_for("students"))
 
 
