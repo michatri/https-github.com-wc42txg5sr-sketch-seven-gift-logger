@@ -55,6 +55,9 @@ async function loadPeople() {
       const name = escapeHtml(p.display_name || p.person_id);
       const id = escapeHtml(p.person_id);
       const score = p.face_score != null ? Number(p.face_score).toFixed(2) : "-";
+      const klass = [p.academic_year, p.term && `เทอม ${p.term}`, p.grade, p.room && `ห้อง ${p.room}`]
+        .filter(Boolean)
+        .join(" · ");
       const src = p.preview_url ? `${p.preview_url}?t=${Date.now()}` : "";
       return `
         <article class="person" data-id="${id}">
@@ -62,6 +65,7 @@ async function loadPeople() {
           <div class="meta">
             <strong>${name}</strong>
             <span>${id} · score ${score}</span>
+            <span>${escapeHtml(klass || "ยังไม่ระบุชั้น/ห้อง")}</span>
           </div>
           <div class="menu">
             <button type="button" class="menu-toggle" data-menu-toggle aria-haspopup="true">จัดการ</button>
@@ -75,9 +79,19 @@ async function loadPeople() {
     .join("");
 }
 
+function profileFormData(extra = {}) {
+  const body = new FormData();
+  Object.entries(extra).forEach(([k, v]) => body.append(k, v));
+  return body;
+}
+
 function openEditModal(person) {
   editPersonId.value = person.person_id;
   editDisplayName.value = person.display_name || person.person_id;
+  document.getElementById("edit_academic_year").value = person.academic_year || "";
+  document.getElementById("edit_term").value = person.term || "";
+  document.getElementById("edit_grade").value = person.grade || "";
+  document.getElementById("edit_room").value = person.room || "";
   editImage.value = "";
   editPreviewImg.src = person.preview_url
     ? `${person.preview_url}?t=${Date.now()}`
@@ -147,11 +161,23 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+function collectProfileFields(prefix = "") {
+  const id = (name) => document.getElementById(prefix + name);
+  return {
+    display_name: id("display_name") ? id("display_name").value.trim() : editDisplayName.value.trim(),
+    academic_year: id("academic_year").value.trim(),
+    term: id("term").value.trim(),
+    grade: id("grade").value.trim(),
+    room: id("room").value.trim(),
+  };
+}
+
 editForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const id = editPersonId.value.trim();
-  const body = new FormData();
-  body.append("display_name", editDisplayName.value.trim());
+  const body = profileFormData({
+    ...collectProfileFields("edit_"),
+  });
   if (editImage.files && editImage.files[0]) {
     body.append("image", editImage.files[0]);
   }
@@ -172,9 +198,10 @@ editForm.addEventListener("submit", async (event) => {
 
 document.getElementById("btn-edit-camera").addEventListener("click", async () => {
   const id = editPersonId.value.trim();
-  const body = new FormData();
-  body.append("display_name", editDisplayName.value.trim());
-  body.append("from_camera", "1");
+  const body = profileFormData({
+    ...collectProfileFields("edit_"),
+    from_camera: "1",
+  });
   setEditStatus("กำลังอัปเดตรูปจากกล้อง...");
   const res = await fetch(`/api/people/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -193,15 +220,15 @@ document.getElementById("btn-edit-camera").addEventListener("click", async () =>
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const personId = document.getElementById("person_id").value.trim();
-  const displayName = document.getElementById("display_name").value.trim();
   const fileInput = document.getElementById("image");
   if (!fileInput.files || !fileInput.files[0]) {
     setStatus("เลือกไฟล์รูป หรือใช้ปุ่มถ่ายจากกล้อง", false);
     return;
   }
-  const body = new FormData();
-  body.append("person_id", personId);
-  body.append("display_name", displayName);
+  const body = profileFormData({
+    person_id: personId,
+    ...collectProfileFields(""),
+  });
   body.append("image", fileInput.files[0]);
   setStatus("กำลังบันทึก...");
   const res = await fetch("/api/enroll", { method: "POST", body });
@@ -217,14 +244,14 @@ form.addEventListener("submit", async (event) => {
 
 document.getElementById("btn-camera").addEventListener("click", async () => {
   const personId = document.getElementById("person_id").value.trim();
-  const displayName = document.getElementById("display_name").value.trim();
   if (!personId) {
     setStatus("กรอกรหัสนักเรียนก่อน", false);
     return;
   }
-  const body = new FormData();
-  body.append("person_id", personId);
-  body.append("display_name", displayName);
+  const body = profileFormData({
+    person_id: personId,
+    ...collectProfileFields(""),
+  });
   setStatus("กำลังถ่ายจากกล้อง...");
   const res = await fetch("/api/enroll/from-camera", { method: "POST", body });
   const data = await res.json();

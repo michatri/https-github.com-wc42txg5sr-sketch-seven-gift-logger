@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 from face_attendance.lib.attendance import (
     attendance_dir,
     list_records,
+    list_student_history,
     process_frame,
 )
 from face_attendance.lib.camera import (
@@ -32,11 +33,12 @@ from face_attendance.lib.gallery import (
     enroll_from_ndarray,
     get_person,
     list_people,
+    profile_options,
     update_person,
 )
 
 WEB_DIR = Path(__file__).resolve().parent
-app = FastAPI(title="Face Attendance", version="0.2.0")
+app = FastAPI(title="Face Attendance", version="0.3.0")
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 
@@ -103,9 +105,65 @@ def check_out_page(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/students", response_class=HTMLResponse)
+def students_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "students.html",
+        {"active": "students"},
+    )
+
+
+@app.get("/api/students")
+def api_students(
+    academic_year: str | None = None,
+    term: str | None = None,
+    grade: str | None = None,
+    room: str | None = None,
+    q: str | None = None,
+) -> dict:
+    students = list_people(
+        academic_year=academic_year,
+        term=term,
+        grade=grade,
+        room=room,
+        q=q,
+    )
+    return {"ok": True, "count": len(students), "students": students}
+
+
+@app.get("/api/students/options")
+def api_student_options() -> dict:
+    return {"ok": True, "options": profile_options()}
+
+
+@app.get("/api/students/{person_id}/history")
+def api_student_history(person_id: str, limit: int = Query(200, ge=1, le=1000)) -> JSONResponse:
+    try:
+        student = get_person(person_id)
+        records = list_student_history(person_id, limit=limit)
+        return JSONResponse(
+            {"ok": True, "student": student, "count": len(records), "records": records}
+        )
+    except EnrollmentError as exc:
+        return _json_error(exc, status=404)
+
+
 @app.get("/api/people")
-def api_list_people() -> dict:
-    people = list_people()
+def api_list_people(
+    academic_year: str | None = None,
+    term: str | None = None,
+    grade: str | None = None,
+    room: str | None = None,
+    q: str | None = None,
+) -> dict:
+    people = list_people(
+        academic_year=academic_year,
+        term=term,
+        grade=grade,
+        room=room,
+        q=q,
+    )
     return {"ok": True, "count": len(people), "people": people}
 
 
@@ -133,19 +191,30 @@ def api_preview(person_id: str) -> Response:
 async def api_update_person(
     person_id: str,
     display_name: str = Form(""),
+    academic_year: str = Form(""),
+    term: str = Form(""),
+    grade: str = Form(""),
+    room: str = Form(""),
     from_camera: str = Form("0"),
     image: UploadFile | None = File(None),
 ) -> JSONResponse:
     try:
+        profile = {
+            "display_name": display_name,
+            "academic_year": academic_year,
+            "term": term,
+            "grade": grade,
+            "room": room,
+        }
         use_camera = from_camera in {"1", "true", "True", "yes"}
         if use_camera:
             with _pipeline_lock:
                 image_bgr = snapshot_from_camera()
                 meta = update_person(
                     person_id,
-                    display_name=display_name,
                     pipeline=get_pipeline(),
                     image_bgr=image_bgr,
+                    **profile,
                 )
         elif image is not None and image.filename:
             data = await image.read()
@@ -155,12 +224,12 @@ async def api_update_person(
             with _pipeline_lock:
                 meta = update_person(
                     person_id,
-                    display_name=display_name,
                     pipeline=get_pipeline(),
                     image_bgr=image_bgr,
+                    **profile,
                 )
         else:
-            meta = update_person(person_id, display_name=display_name)
+            meta = update_person(person_id, **profile)
         return JSONResponse({"ok": True, "person": meta})
     except EnrollmentError as exc:
         return _json_error(exc)
@@ -183,6 +252,10 @@ def api_delete(person_id: str) -> dict:
 async def api_enroll(
     person_id: str = Form(...),
     display_name: str = Form(""),
+    academic_year: str = Form(""),
+    term: str = Form(""),
+    grade: str = Form(""),
+    room: str = Form(""),
     image: UploadFile = File(...),
 ) -> JSONResponse:
     try:
@@ -196,6 +269,10 @@ async def api_enroll(
                 img,
                 person_id,
                 display_name=display_name or None,
+                academic_year=academic_year or None,
+                term=term or None,
+                grade=grade or None,
+                room=room or None,
             )
         return JSONResponse({"ok": True, "person": meta})
     except EnrollmentError as exc:
@@ -208,6 +285,10 @@ async def api_enroll(
 async def api_enroll_from_camera(
     person_id: str = Form(...),
     display_name: str = Form(""),
+    academic_year: str = Form(""),
+    term: str = Form(""),
+    grade: str = Form(""),
+    room: str = Form(""),
 ) -> JSONResponse:
     try:
         with _pipeline_lock:
@@ -217,6 +298,10 @@ async def api_enroll_from_camera(
                 frame,
                 person_id,
                 display_name=display_name or None,
+                academic_year=academic_year or None,
+                term=term or None,
+                grade=grade or None,
+                room=room or None,
             )
         return JSONResponse({"ok": True, "person": meta})
     except EnrollmentError as exc:

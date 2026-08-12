@@ -57,11 +57,24 @@ def _cooldown() -> int:
     return int(os.getenv("COOLDOWN_SECONDS", "120"))
 
 
-def _display_name(person_id: str) -> str:
+def _person_snapshot(person_id: str) -> dict:
     try:
-        return str(get_person(person_id).get("display_name") or person_id)
+        person = get_person(person_id)
+        return {
+            "display_name": str(person.get("display_name") or person_id),
+            "academic_year": str(person.get("academic_year") or ""),
+            "term": str(person.get("term") or ""),
+            "grade": str(person.get("grade") or ""),
+            "room": str(person.get("room") or ""),
+        }
     except Exception:  # noqa: BLE001
-        return person_id
+        return {
+            "display_name": person_id,
+            "academic_year": "",
+            "term": "",
+            "grade": "",
+            "room": "",
+        }
 
 
 def _append_record(record: dict) -> None:
@@ -72,6 +85,10 @@ def _append_record(record: dict) -> None:
         "direction",
         "person_id",
         "display_name",
+        "academic_year",
+        "term",
+        "grade",
+        "room",
         "similarity",
         "snapshot",
     ]
@@ -85,28 +102,78 @@ def _append_record(record: dict) -> None:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def _iter_jsonl_rows() -> list[dict]:
+    rows: list[dict] = []
+    for path in sorted(attendance_dir().glob("attendance_*.jsonl")):
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+    return rows
+
+
 def list_records(
     direction: Direction | None = None,
     limit: int = 50,
+    person_id: str | None = None,
+    academic_year: str | None = None,
+    term: str | None = None,
+    grade: str | None = None,
+    room: str | None = None,
+    today_only: bool = True,
 ) -> list[dict]:
-    _, jsonl_path = _day_paths()
-    if not jsonl_path.exists():
-        return []
+    if today_only:
+        _, jsonl_path = _day_paths()
+        source_rows: list[dict] = []
+        if jsonl_path.exists():
+            with jsonl_path.open(encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(row, dict):
+                        source_rows.append(row)
+    else:
+        source_rows = _iter_jsonl_rows()
+
+    year_f = (academic_year or "").strip()
+    term_f = (term or "").strip()
+    grade_f = (grade or "").strip()
+    room_f = (room or "").strip()
+    person_f = (person_id or "").strip()
+
     rows: list[dict] = []
-    with jsonl_path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if direction and row.get("direction") != direction:
-                continue
-            rows.append(row)
+    for row in source_rows:
+        if direction and row.get("direction") != direction:
+            continue
+        if person_f and row.get("person_id") != person_f:
+            continue
+        if year_f and str(row.get("academic_year") or "") != year_f:
+            continue
+        if term_f and str(row.get("term") or "") != term_f:
+            continue
+        if grade_f and str(row.get("grade") or "") != grade_f:
+            continue
+        if room_f and str(row.get("room") or "") != room_f:
+            continue
+        rows.append(row)
     rows.reverse()
-    return rows[: max(1, min(limit, 500))]
+    return rows[: max(1, min(limit, 1000))]
+
+
+def list_student_history(person_id: str, limit: int = 200) -> list[dict]:
+    return list_records(person_id=person_id, limit=limit, today_only=False)
 
 
 def process_frame(
@@ -143,10 +210,11 @@ def process_frame(
             key = (name, direction)
             prev = _last_marked.get(key, 0.0)
             if now_ts - prev < cooldown:
+                profile = _person_snapshot(name)
                 skipped.append(
                     {
                         "person_id": name,
-                        "display_name": _display_name(name),
+                        "display_name": profile["display_name"],
                         "similarity": round(float(sim), 4),
                         "reason": "cooldown",
                         "retry_in_sec": int(cooldown - (now_ts - prev)),
@@ -162,12 +230,17 @@ def process_frame(
             snap_path = attendance_dir() / snap_name
             cv2.imwrite(str(snap_path), crop)
 
+            profile = _person_snapshot(name)
             record = {
                 "timestamp_local": now_local.isoformat(timespec="seconds"),
                 "timestamp_utc": now_utc.isoformat(timespec="seconds"),
                 "direction": direction,
                 "person_id": name,
-                "display_name": _display_name(name),
+                "display_name": profile["display_name"],
+                "academic_year": profile["academic_year"],
+                "term": profile["term"],
+                "grade": profile["grade"],
+                "room": profile["room"],
                 "similarity": round(float(sim), 4),
                 "snapshot": str(snap_path),
                 "snapshot_url": f"/api/attendance/snapshot-file/{snap_name}",
