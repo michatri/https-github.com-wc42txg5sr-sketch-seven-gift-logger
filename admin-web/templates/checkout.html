@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}เช็คออก · School Check-in{% endblock %}
+{% block heading %}เช็คออกจากโรงเรียน{% endblock %}
+
+{% block content %}
+<section class="form-panel">
+  <p class="hint">
+    กดปุ่มแล้ววางนิ้ว ระบบจะบันทึกเวลาออกให้รายการเช็คเข้าของวันนี้ที่ยังไม่ออก
+  </p>
+  <form method="post" class="register-form">
+    <button type="submit">สแกนเพื่อเช็คออก</button>
+  </form>
+
+  {% if result and result.ok %}
+  <div class="result-box">
+    <p><strong>{{ result.student_code }}</strong> {{ result.name }}</p>
+    <p>เข้า: {{ result.check_in_at }}</p>
+    <p>ออก: {{ result.when }}</p>
+    <p>มือ{{ result.hand }} · นิ้ว #{{ result.finger_id }} · คะแนน {{ result.score }}</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

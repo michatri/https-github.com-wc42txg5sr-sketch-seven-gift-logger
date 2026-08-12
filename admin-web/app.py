@@ -51,8 +51,11 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           student_id INTEGER NOT NULL,
           check_in_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+          check_out_at TEXT,
           matched_hand TEXT,
           matched_finger_id INTEGER,
+          check_out_hand TEXT,
+          check_out_finger_id INTEGER,
           FOREIGN KEY(student_id) REFERENCES students(id)
         );
         CREATE TABLE IF NOT EXISTS topups (

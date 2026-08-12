@@ -17,10 +17,11 @@
         <h1>{% block heading %}{% endblock %}</h1>
       </div>
       <nav class="nav">
-        <a href="{{ url_for('attendance') }}" class="{% if request.endpoint == 'attendance' %}active{% endif %}">เวลาเข้า</a>
+        <a href="{{ url_for('attendance') }}" class="{% if request.endpoint == 'attendance' %}active{% endif %}">เวลาเข้า-ออก</a>
         <a href="{{ url_for('students') }}" class="{% if request.endpoint == 'students' %}active{% endif %}">รายชื่อนักเรียน</a>
         <a href="{{ url_for('register') }}" class="{% if request.endpoint == 'register' %}active{% endif %}">เพิ่มนักเรียน</a>
         <a href="{{ url_for('checkin') }}" class="{% if request.endpoint == 'checkin' %}active{% endif %}">เช็คเข้า</a>
+        <a href="{{ url_for('checkout') }}" class="{% if request.endpoint == 'checkout' %}active{% endif %}">เช็คออก</a>
         <a href="{{ url_for('shops') }}" class="{% if request.endpoint in ('shops', 'new_shop', 'edit_shop') %}active{% endif %}">ร้านอาหาร</a>
         <a href="{{ url_for('purchase') }}" class="{% if request.endpoint == 'purchase' %}active{% endif %}">ตัดเงิน</a>
         <a href="{{ url_for('purchase_history') }}" class="{% if request.endpoint == 'purchase_history' %}active{% endif %}">ประวัติตัดเงิน</a>
