@@ -105,6 +105,12 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE attendance ADD COLUMN matched_hand TEXT")
     if "matched_finger_id" not in attendance_cols:
         conn.execute("ALTER TABLE attendance ADD COLUMN matched_finger_id INTEGER")
+    if "check_out_at" not in attendance_cols:
+        conn.execute("ALTER TABLE attendance ADD COLUMN check_out_at TEXT")
+    if "check_out_hand" not in attendance_cols:
+        conn.execute("ALTER TABLE attendance ADD COLUMN check_out_hand TEXT")
+    if "check_out_finger_id" not in attendance_cols:
+        conn.execute("ALTER TABLE attendance ADD COLUMN check_out_finger_id INTEGER")
 
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_students_finger_left ON students(finger_left_id)"
@@ -326,8 +332,11 @@ def attendance():
         SELECT
             a.id,
             a.check_in_at,
+            a.check_out_at,
             a.matched_hand,
             a.matched_finger_id,
+            a.check_out_hand,
+            a.check_out_finger_id,
             s.student_code,
             s.first_name,
             s.last_name,
@@ -363,6 +372,20 @@ def attendance():
     total_today = get_db().execute(
         "SELECT COUNT(*) AS c FROM attendance WHERE date(check_in_at) = date('now','localtime')"
     ).fetchone()["c"]
+    total_out_today = get_db().execute(
+        """
+        SELECT COUNT(*) AS c FROM attendance
+        WHERE date(check_in_at) = date('now','localtime')
+          AND check_out_at IS NOT NULL AND check_out_at != ''
+        """
+    ).fetchone()["c"]
+    still_in_today = get_db().execute(
+        """
+        SELECT COUNT(*) AS c FROM attendance
+        WHERE date(check_in_at) = date('now','localtime')
+          AND (check_out_at IS NULL OR check_out_at = '')
+        """
+    ).fetchone()["c"]
 
     return render_template(
         "attendance.html",
@@ -371,6 +394,8 @@ def attendance():
         date=date,
         total_students=total_students,
         total_today=total_today,
+        total_out_today=total_out_today,
+        still_in_today=still_in_today,
     )
 
 
@@ -741,6 +766,75 @@ def checkin():
             flash(f"เช็คเข้าไม่สำเร็จ: {exc}", "error")
 
     return render_template("checkin.html", result=result)
+
+
+@app.route("/checkout", methods=["GET", "POST"])
+def checkout():
+    result = None
+    if request.method == "POST":
+        db = get_db()
+        try:
+            sensor = open_sensor()
+            wait_for_finger(sensor, timeout_sec=30)
+            sensor.convertImage(0x01)
+            position, score = sensor.searchTemplate()
+            if position < 0:
+                raise RuntimeError("ไม่พบลายนิ้วมือในระบบ")
+
+            student = find_student_by_finger(db, position)
+            if not student:
+                raise RuntimeError(f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน")
+
+            open_row = db.execute(
+                """
+                SELECT id, check_in_at
+                FROM attendance
+                WHERE student_id = ?
+                  AND date(check_in_at) = date('now','localtime')
+                  AND (check_out_at IS NULL OR check_out_at = '')
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (student["id"],),
+            ).fetchone()
+            if not open_row:
+                raise RuntimeError("ยังไม่มีรายการเช็คเข้าวันนี้ หรือเช็คออกไปแล้ว")
+
+            hand = matched_hand_for(student, position)
+            db.execute(
+                """
+                UPDATE attendance
+                SET check_out_at = datetime('now','localtime'),
+                    check_out_hand = ?,
+                    check_out_finger_id = ?
+                WHERE id = ?
+                """,
+                (hand, position, open_row["id"]),
+            )
+            db.commit()
+            when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
+            result = {
+                "ok": True,
+                "student_code": student["student_code"],
+                "name": full_name(
+                    student["first_name"] or student["name"],
+                    student["last_name"] or "",
+                ),
+                "hand": "ซ้าย" if hand == "left" else "ขวา" if hand == "right" else "-",
+                "finger_id": position,
+                "score": score,
+                "when": when,
+                "check_in_at": open_row["check_in_at"],
+            }
+            flash(
+                f"เช็คออกสำเร็จ: {result['student_code']} {result['name']} "
+                f"({result['hand']} #{position})",
+                "ok",
+            )
+        except Exception as exc:
+            flash(f"เช็คออกไม่สำเร็จ: {exc}", "error")
+
+    return render_template("checkout.html", result=result)
 
 
 def student_payload(row) -> dict:
