@@ -1,0 +1,10 @@
+face_attendance/config/camera.env
+face_attendance/data/captures/
+face_attendance/data/attendance/
+face_attendance/data/enrolled/
+face_attendance/data/gallery/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
