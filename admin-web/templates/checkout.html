@@ -3,21 +3,91 @@
 {% block heading %}เช็คออกจากโรงเรียน{% endblock %}
 
 {% block content %}
-<section class="form-panel">
+<section class="form-panel form-panel-wide">
   <p class="hint">
-    กดปุ่มแล้ววางนิ้ว ระบบจะบันทึกเวลาออกให้รายการเช็คเข้าของวันนี้ที่ยังไม่ออก
+    กดปุ่มแล้ววางนิ้วทันที ระบบจะบันทึกเวลาออกให้รายการเช็คเข้าวันนี้ที่ยังไม่ออก
   </p>
-  <form method="post" class="register-form">
-    <button type="submit">สแกนเพื่อเช็คออก</button>
-  </form>
 
-  {% if result and result.ok %}
-  <div class="result-box">
-    <p><strong>{{ result.student_code }}</strong> {{ result.name }}</p>
-    <p>เข้า: {{ result.check_in_at }}</p>
-    <p>ออก: {{ result.when }}</p>
-    <p>มือ{{ result.hand }} · นิ้ว #{{ result.finger_id }} · คะแนน {{ result.score }}</p>
+  <button type="button" class="scan-finger-btn" id="scan-btn">สแกนเพื่อเช็คออก</button>
+
+  <div class="student-box" id="status-box">
+    <p class="muted" id="status-text">กำลังเตรียมเซนเซอร์...</p>
   </div>
-  {% endif %}
+
+  <div class="result-box" id="result-box" hidden></div>
+  <p class="topup-message" id="message" hidden></p>
 </section>
+
+<script>
+(function () {
+  const scanBtn = document.getElementById("scan-btn");
+  const statusText = document.getElementById("status-text");
+  const resultBox = document.getElementById("result-box");
+  const messageEl = document.getElementById("message");
+
+  function showMessage(text, ok) {
+    messageEl.hidden = false;
+    messageEl.textContent = text;
+    messageEl.className = "topup-message " + (ok ? "ok" : "error");
+  }
+
+  function setStatus(text, isError) {
+    statusText.textContent = text;
+    statusText.className = isError ? "error-text" : "muted";
+  }
+
+  async function warmSensor() {
+    try {
+      const res = await fetch("{{ url_for('api_sensor_ready') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.message || "เซนเซอร์ไม่พร้อม");
+      setStatus("R307 พร้อมแล้ว — กดปุ่มแล้ววางนิ้วได้เลย");
+      showMessage(data.message, true);
+    } catch (err) {
+      setStatus(err.message || "เซนเซอร์ยังไม่พร้อม", true);
+      showMessage(err.message || "เซนเซอร์ยังไม่พร้อม", false);
+    }
+  }
+
+  async function doCheckout() {
+    scanBtn.disabled = true;
+    resultBox.hidden = true;
+    setStatus("เซนเซอร์พร้อมรับลายนิ้วมือแล้ว — วางนิ้วได้เลย");
+    showMessage("กำลังรอวางนิ้วบน R307...", true);
+    try {
+      const res = await fetch("{{ url_for('api_checkout') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}"
+      });
+      let data = null;
+      try { data = await res.json(); }
+      catch (e) { throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP " + res.status + ")"); }
+      if (!res.ok || !data.ok) throw new Error(data.message || "เช็คออกไม่สำเร็จ");
+
+      const r = data.result;
+      resultBox.hidden = false;
+      resultBox.innerHTML =
+        "<p><strong>" + r.student_code + "</strong> " + r.name + "</p>" +
+        "<p>เข้า: " + r.check_in_at + "</p>" +
+        "<p>ออก: " + r.when + "</p>" +
+        "<p>มือ" + r.hand + " · นิ้ว #" + r.finger_id + " · คะแนน " + r.score + "</p>";
+      setStatus("เช็คออกสำเร็จ");
+      showMessage(data.message + ": " + r.student_code + " " + r.name, true);
+    } catch (err) {
+      setStatus(err.message || "เช็คออกไม่สำเร็จ", true);
+      showMessage(err.message || "เช็คออกไม่สำเร็จ", false);
+    } finally {
+      scanBtn.disabled = false;
+    }
+  }
+
+  scanBtn.addEventListener("click", doCheckout);
+  warmSensor();
+})();
+</script>
 {% endblock %}

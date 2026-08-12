@@ -721,100 +721,122 @@ def register():
     return render_template("register.html", form=form)
 
 
-@app.route("/checkin", methods=["GET", "POST"])
+@app.route("/checkin", methods=["GET"])
 def checkin():
-    result = None
-    if request.method == "POST":
-        db = get_db()
-        try:
-            sensor = open_sensor()
-            wait_for_finger(sensor, timeout_sec=30)
-            sensor.convertImage(0x01)
-            position, score = sensor.searchTemplate()
-            if position < 0:
-                raise RuntimeError("ไม่พบลายนิ้วมือในระบบ")
+    return render_template("checkin.html")
 
-            student = find_student_by_finger(db, position)
-            if not student:
-                raise RuntimeError(f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน")
 
-            hand = matched_hand_for(student, position)
-            db.execute(
-                """
-                INSERT INTO attendance(student_id, matched_hand, matched_finger_id)
-                VALUES (?, ?, ?)
-                """,
-                (student["id"], hand, position),
-            )
-            db.commit()
-            when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
-            result = {
-                "ok": True,
+@app.route("/checkout", methods=["GET"])
+def checkout():
+    return render_template("checkout.html")
+
+
+def scan_student_from_sensor(timeout_sec: int = 40):
+    sensor = open_sensor()
+    wait_for_finger(sensor, timeout_sec=timeout_sec)
+    sensor.convertImage(0x01)
+    position, score = sensor.searchTemplate()
+    if position < 0:
+        raise RuntimeError("ไม่พบลายนิ้วมือในระบบ")
+
+    student = find_student_by_finger(get_db(), int(position))
+    if not student:
+        raise RuntimeError(f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน")
+
+    hand = matched_hand_for(student, int(position))
+    return student, hand, int(position), int(score)
+
+
+@app.route("/api/sensor-ready", methods=["POST"])
+def api_sensor_ready():
+    try:
+        sensor = open_sensor()
+        count = sensor.getTemplateCount()
+        capacity = sensor.getStorageCapacity()
+        return jsonify(
+            ok=True,
+            message="R307 พร้อมรับลายนิ้วมือแล้ว",
+            templates=count,
+            capacity=capacity,
+        )
+    except Exception as exc:
+        return jsonify(ok=False, message=f"เซนเซอร์ยังไม่พร้อม: {exc}"), 400
+
+
+@app.route("/api/checkin", methods=["POST"])
+def api_checkin():
+    db = get_db()
+    try:
+        student, hand, position, score = scan_student_from_sensor()
+        db.execute(
+            """
+            INSERT INTO attendance(student_id, matched_hand, matched_finger_id)
+            VALUES (?, ?, ?)
+            """,
+            (student["id"], hand, position),
+        )
+        db.commit()
+        when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
+        return jsonify(
+            ok=True,
+            message="เช็คเข้าสำเร็จ",
+            result={
                 "student_code": student["student_code"],
-                "name": full_name(student["first_name"] or student["name"], student["last_name"] or ""),
+                "name": full_name(
+                    student["first_name"] or student["name"],
+                    student["last_name"] or "",
+                ),
                 "hand": "ซ้าย" if hand == "left" else "ขวา" if hand == "right" else "-",
                 "finger_id": position,
                 "score": score,
                 "when": when,
-            }
-            flash(
-                f"เช็คเข้าสำเร็จ: {result['student_code']} {result['name']} "
-                f"({result['hand']} #{position})",
-                "ok",
-            )
-        except Exception as exc:
-            flash(f"เช็คเข้าไม่สำเร็จ: {exc}", "error")
+            },
+        )
+    except TimeoutError:
+        return jsonify(
+            ok=False,
+            message="หมดเวลารอวางนิ้ว — กดปุ่มแล้ววางนิ้วบนเซนเซอร์ทันที",
+        ), 408
+    except Exception as exc:
+        return jsonify(ok=False, message=str(exc)), 400
 
-    return render_template("checkin.html", result=result)
 
+@app.route("/api/checkout", methods=["POST"])
+def api_checkout():
+    db = get_db()
+    try:
+        student, hand, position, score = scan_student_from_sensor()
+        open_row = db.execute(
+            """
+            SELECT id, check_in_at
+            FROM attendance
+            WHERE student_id = ?
+              AND date(check_in_at) = date('now','localtime')
+              AND (check_out_at IS NULL OR check_out_at = '')
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (student["id"],),
+        ).fetchone()
+        if not open_row:
+            raise RuntimeError("ยังไม่มีรายการเช็คเข้าวันนี้ หรือเช็คออกไปแล้ว")
 
-@app.route("/checkout", methods=["GET", "POST"])
-def checkout():
-    result = None
-    if request.method == "POST":
-        db = get_db()
-        try:
-            sensor = open_sensor()
-            wait_for_finger(sensor, timeout_sec=30)
-            sensor.convertImage(0x01)
-            position, score = sensor.searchTemplate()
-            if position < 0:
-                raise RuntimeError("ไม่พบลายนิ้วมือในระบบ")
-
-            student = find_student_by_finger(db, position)
-            if not student:
-                raise RuntimeError(f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน")
-
-            open_row = db.execute(
-                """
-                SELECT id, check_in_at
-                FROM attendance
-                WHERE student_id = ?
-                  AND date(check_in_at) = date('now','localtime')
-                  AND (check_out_at IS NULL OR check_out_at = '')
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                (student["id"],),
-            ).fetchone()
-            if not open_row:
-                raise RuntimeError("ยังไม่มีรายการเช็คเข้าวันนี้ หรือเช็คออกไปแล้ว")
-
-            hand = matched_hand_for(student, position)
-            db.execute(
-                """
-                UPDATE attendance
-                SET check_out_at = datetime('now','localtime'),
-                    check_out_hand = ?,
-                    check_out_finger_id = ?
-                WHERE id = ?
-                """,
-                (hand, position, open_row["id"]),
-            )
-            db.commit()
-            when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
-            result = {
-                "ok": True,
+        db.execute(
+            """
+            UPDATE attendance
+            SET check_out_at = datetime('now','localtime'),
+                check_out_hand = ?,
+                check_out_finger_id = ?
+            WHERE id = ?
+            """,
+            (hand, position, open_row["id"]),
+        )
+        db.commit()
+        when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
+        return jsonify(
+            ok=True,
+            message="เช็คออกสำเร็จ",
+            result={
                 "student_code": student["student_code"],
                 "name": full_name(
                     student["first_name"] or student["name"],
@@ -825,16 +847,15 @@ def checkout():
                 "score": score,
                 "when": when,
                 "check_in_at": open_row["check_in_at"],
-            }
-            flash(
-                f"เช็คออกสำเร็จ: {result['student_code']} {result['name']} "
-                f"({result['hand']} #{position})",
-                "ok",
-            )
-        except Exception as exc:
-            flash(f"เช็คออกไม่สำเร็จ: {exc}", "error")
-
-    return render_template("checkout.html", result=result)
+            },
+        )
+    except TimeoutError:
+        return jsonify(
+            ok=False,
+            message="หมดเวลารอวางนิ้ว — กดปุ่มแล้ววางนิ้วบนเซนเซอร์ทันที",
+        ), 408
+    except Exception as exc:
+        return jsonify(ok=False, message=str(exc)), 400
 
 
 def student_payload(row) -> dict:
@@ -1449,4 +1470,4 @@ if __name__ == "__main__":
     print(f"DB: {app.config['DB_PATH']}")
     print(f"Sensor: {app.config['FINGERPRINT_PORT']} @ {app.config['FINGERPRINT_BAUD']}")
     print(f"Open: http://{host}:{port}/")
-    app.run(host=host, port=port, debug=False)
+    app.run(host=host, port=port, debug=False, threaded=True)
