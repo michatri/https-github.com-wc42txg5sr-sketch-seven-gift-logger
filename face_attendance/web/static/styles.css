@@ -36,6 +36,54 @@ body {
   margin: 0 auto;
 }
 
+.topnav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 252, 248, 0.8);
+  box-shadow: var(--shadow);
+  animation: rise 0.45s ease both;
+}
+
+.nav-brand {
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 1.05rem;
+}
+
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-links a:hover {
+  color: var(--ink);
+  background: rgba(15, 107, 99, 0.08);
+}
+
+.nav-links a.active {
+  color: #fff;
+  background: var(--accent);
+}
+
 .hero {
   display: grid;
   gap: 8px;
@@ -170,6 +218,10 @@ button:active { transform: translateY(1px) scale(0.98); }
   min-height: 180px;
   display: grid;
   place-items: center;
+}
+
+.preview-box.tall {
+  min-height: 280px;
 }
 
 .preview-box img {
@@ -384,6 +436,48 @@ input[readonly] {
   color: var(--muted);
 }
 
+.records {
+  display: grid;
+  gap: 10px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.record {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.72);
+  animation: rise 0.35s ease both;
+}
+
+.record img,
+.thumb-empty {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #d9e2e8;
+}
+
+.record .meta {
+  display: grid;
+  gap: 2px;
+}
+
+.record .meta strong {
+  font-size: 1rem;
+}
+
+.record .meta span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -392,4 +486,17 @@ input[readonly] {
 @keyframes fade {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@media (max-width: 700px) {
+  .topnav {
+    align-items: stretch;
+  }
+  .nav-links {
+    width: 100%;
+  }
+  .nav-links a {
+    flex: 1 1 auto;
+    text-align: center;
+  }
 }

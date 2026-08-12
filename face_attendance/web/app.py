@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FastAPI web app: ลงทะเบียนใบหน้านักเรียน."""
+"""FastAPI web app: ลงทะเบียนใบหน้า + ลงเวลาเข้า/ออก."""
 
 from __future__ import annotations
 
@@ -10,11 +10,16 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from face_attendance.lib.attendance import (
+    attendance_dir,
+    list_records,
+    process_frame,
+)
 from face_attendance.lib.camera import (
     FacePipeline,
     draw_hits,
@@ -31,7 +36,7 @@ from face_attendance.lib.gallery import (
 )
 
 WEB_DIR = Path(__file__).resolve().parent
-app = FastAPI(title="Face Enrollment", version="0.1.0")
+app = FastAPI(title="Face Attendance", version="0.2.0")
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 
@@ -62,7 +67,38 @@ def home(request: Request) -> HTMLResponse:
         request,
         "index.html",
         {
+            "active": "enroll",
             "people_count": len(list_people()),
+        },
+    )
+
+
+@app.get("/check-in", response_class=HTMLResponse)
+def check_in_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "attendance.html",
+        {
+            "active": "in",
+            "direction": "in",
+            "direction_label": "เข้า",
+            "page_title": "ลงเวลาเข้าโรงเรียน",
+            "page_sub": "สแกนใบหน้าจากกล้องเพื่อบันทึกเวลาเข้าโรงเรียนหลายคนพร้อมกัน",
+        },
+    )
+
+
+@app.get("/check-out", response_class=HTMLResponse)
+def check_out_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "attendance.html",
+        {
+            "active": "out",
+            "direction": "out",
+            "direction_label": "ออก",
+            "page_title": "ลงเวลาออกจากโรงเรียน",
+            "page_sub": "สแกนใบหน้าจากกล้องเพื่อบันทึกเวลาออกจากโรงเรียนหลายคนพร้อมกัน",
         },
     )
 
@@ -101,7 +137,6 @@ async def api_update_person(
     image: UploadFile | None = File(None),
 ) -> JSONResponse:
     try:
-        image_bgr = None
         use_camera = from_camera in {"1", "true", "True", "yes"}
         if use_camera:
             with _pipeline_lock:
@@ -210,6 +245,49 @@ def api_camera_snapshot(annotate: bool = True) -> Response:
         return Response(content=buf.tobytes(), media_type="image/jpeg", headers=headers)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/attendance/scan")
+def api_attendance_scan(
+    direction: str = Query("in", pattern="^(in|out)$"),
+) -> Response:
+    try:
+        with _pipeline_lock:
+            frame = snapshot_from_camera()
+            result = process_frame(get_pipeline(), frame, direction)  # type: ignore[arg-type]
+        headers = {
+            "X-Face-Count": str(result["face_count"]),
+            "X-Marked-Count": str(len(result["marked"])),
+            "X-Unknown-Count": str(result["unknown"]),
+            "X-Skipped-Count": str(len(result["skipped"])),
+            "X-Direction": direction,
+        }
+        return Response(
+            content=result["image_jpeg"],
+            media_type="image/jpeg",
+            headers=headers,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return _json_error(exc, status=500)
+
+
+@app.get("/api/attendance")
+def api_attendance_list(
+    direction: str | None = Query(None, pattern="^(in|out)$"),
+    limit: int = Query(50, ge=1, le=500),
+) -> dict:
+    rows = list_records(direction=direction, limit=limit)  # type: ignore[arg-type]
+    return {"ok": True, "count": len(rows), "records": rows}
+
+
+@app.get("/api/attendance/snapshot-file/{filename}")
+def api_attendance_snapshot_file(filename: str) -> Response:
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+\.jpg", filename):
+        raise HTTPException(status_code=400, detail="ชื่อไฟล์ไม่ถูกต้อง")
+    path = attendance_dir() / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="ไม่พบไฟล์")
+    return Response(content=path.read_bytes(), media_type="image/jpeg")
 
 
 @app.get("/api/health")

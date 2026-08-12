@@ -1,16 +1,6 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ลงทะเบียนใบหน้า | Face Attendance</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/styles.css" />
-</head>
-<body>
-  <div class="wrap">
+{% extends "base.html" %}
+{% block title %}ลงทะเบียนใบหน้า | Face Attendance{% endblock %}
+{% block content %}
     <header class="hero">
       <div class="brand">ลงทะเบียนใบหน้า</div>
       <p class="sub">เพิ่มนักเรียนเข้าสู่ระบบจดจำใบหน้าจากกล้อง Hikvision หรืออัปโหลดรูปตรงหน้า</p>
@@ -63,8 +53,9 @@
         </div>
       </section>
     </div>
-  </div>
+{% endblock %}
 
+{% block modals %}
   <div id="edit-modal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal></div>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-title">
@@ -98,7 +89,8 @@
       </form>
     </div>
   </div>
+{% endblock %}
 
+{% block scripts %}
   <script src="/static/app.js"></script>
-</body>
-</html>
+{% endblock %}

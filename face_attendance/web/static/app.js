@@ -11,6 +11,13 @@ const editDisplayName = document.getElementById("edit_display_name");
 const editImage = document.getElementById("edit_image");
 const editPreviewImg = document.getElementById("edit_preview_img");
 
+if (!form || !peopleEl) {
+  // หน้าอื่นที่ไม่ใช่ลงทะเบียน
+} else {
+  bootEnrollPage();
+}
+
+function bootEnrollPage() {
 function setStatus(message, ok = true) {
   statusEl.textContent = message || "";
   statusEl.className = "status " + (ok ? "ok" : "err");
@@ -249,3 +256,4 @@ async function refreshCameraPreview() {
 document.getElementById("btn-preview").addEventListener("click", refreshCameraPreview);
 
 loadPeople().catch((err) => setStatus(String(err), false));
+}
