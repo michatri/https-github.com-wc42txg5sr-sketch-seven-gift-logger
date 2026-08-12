@@ -402,6 +402,44 @@ def edit_student(student_id: int):
     return render_template("edit_student.html", form=form, student=student)
 
 
+@app.route("/students/<int:student_id>/delete", methods=["POST"])
+def delete_student(student_id: int):
+    student = get_student_or_404(student_id)
+    if student is None:
+        flash("ไม่พบนักเรียน", "error")
+        return redirect(url_for("students"))
+
+    left_id = student["finger_left_id"]
+    right_id = student["finger_right_id"]
+    legacy_id = student["finger_id"]
+    positions = {p for p in (left_id, right_id, legacy_id) if p is not None}
+
+    sensor_error = None
+    try:
+        if positions:
+            sensor = open_sensor()
+            for pos in positions:
+                delete_template(sensor, pos)
+    except Exception as exc:
+        sensor_error = str(exc)
+
+    db = get_db()
+    db.execute("DELETE FROM attendance WHERE student_id = ?", (student_id,))
+    db.execute("DELETE FROM students WHERE id = ?", (student_id,))
+    db.commit()
+
+    display = full_name(student["first_name"] or student["name"], student["last_name"] or "")
+    if sensor_error:
+        flash(
+            f"ลบรายชื่อแล้ว: {student['student_code']} {display} "
+            f"(แต่ลบนิ้วในเซนเซอร์ไม่ครบ: {sensor_error})",
+            "error",
+        )
+    else:
+        flash(f"ลบแล้ว: {student['student_code']} {display}", "ok")
+    return redirect(url_for("students"))
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = {

@@ -190,6 +190,55 @@ h1 {
   margin: 0.25rem 0;
 }
 
+.actions {
+  white-space: nowrap;
+}
+
+.actions .row-action,
+.actions .link-danger {
+  margin-right: 0.65rem;
+}
+
+.inline-form {
+  display: inline;
+  margin: 0;
+}
+
+.link-danger,
+.button-danger {
+  border: none;
+  background: none;
+  color: #9b1c1c;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.link-danger:hover,
+.button-danger:hover {
+  text-decoration: underline;
+}
+
+.danger-zone {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.button-danger {
+  border: 1px solid #c98585;
+  background: #fdeeee;
+  color: #7a2424;
+  padding: 0.75rem 1rem;
+}
+
+.button-danger:hover {
+  text-decoration: none;
+  background: #f9dede;
+}
+
 .nav a {
   text-decoration: none;
   color: var(--ink);

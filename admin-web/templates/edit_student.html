@@ -37,5 +37,9 @@
       <a class="button-secondary" href="{{ url_for('students') }}">ยกเลิก</a>
     </div>
   </form>
+
+  <form class="danger-zone" method="post" action="{{ url_for('delete_student', student_id=student.id) }}" onsubmit="return confirm('ยืนยันลบนักเรียนคนนี้ รวมประวัติเข้า และลายนิ้วมือ?');">
+    <button type="submit" class="button-danger">ลบนักเรียนคนนี้</button>
+  </form>
 </section>
 {% endblock %}

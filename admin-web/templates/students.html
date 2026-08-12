@@ -9,7 +9,7 @@
     <input type="search" name="q" value="{{ q }}" placeholder="รหัส หรือ ชื่อ">
   </label>
   <button type="submit">ค้นหา</button>
-  <a class="reset" href="{{ url_for('register') }}">+ ลงทะเบียน</a>
+  <a class="reset" href="{{ url_for('register') }}">+ เพิ่มนักเรียน</a>
   {% if q %}
   <a class="reset" href="{{ url_for('students') }}">ล้าง</a>
   {% endif %}
@@ -28,7 +28,7 @@
         <th>จำนวนครั้งเข้า</th>
         <th>เข้าล่าสุด</th>
         <th>ลงทะเบียนเมื่อ</th>
-        <th></th>
+        <th>จัดการ</th>
       </tr>
     </thead>
     <tbody>
@@ -42,13 +42,18 @@
         <td>{{ row.checkin_count }}</td>
         <td>{{ row.last_check_in or '-' }}</td>
         <td>{{ row.created_at }}</td>
-        <td><a class="row-action" href="{{ url_for('edit_student', student_id=row.id) }}">แก้ไข</a></td>
+        <td class="actions">
+          <a class="row-action" href="{{ url_for('edit_student', student_id=row.id) }}">แก้ไข</a>
+          <form class="inline-form" method="post" action="{{ url_for('delete_student', student_id=row.id) }}" onsubmit="return confirm('ลบ {{ row.student_code }} {{ row.first_name or row.name }} {{ row.last_name or '' }} ?');">
+            <button type="submit" class="link-danger">ลบ</button>
+          </form>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p class="empty">ยังไม่มีรายชื่อนักเรียน</p>
+  <p class="empty">ยังไม่มีรายชื่อนักเรียน — <a href="{{ url_for('register') }}">เพิ่มนักเรียน</a></p>
   {% endif %}
 </section>
 {% endblock %}
