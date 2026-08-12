@@ -36,6 +36,32 @@ rtsp://USER:PASS@CAMERA_IP:554/Streaming/Channels/102   # sub  (เบา)
 
 ## ติดตั้งบนเครื่องทดสอบ
 
+### Ubuntu Server (แนะนำ)
+
+```bash
+cd face_attendance
+chmod +x setup_ubuntu.sh
+./setup_ubuntu.sh
+```
+
+สคริปต์จะลงให้:
+- `python3` + `venv` + `pip`
+- `ffmpeg` (อ่าน RTSP Hikvision)
+- ไลบรารีระบบที่ OpenCV ต้องใช้ (`libgl1`, `libglib2.0-0`)
+- Python packages จาก `requirements.txt`
+- สร้าง `config/camera.env` จากตัวอย่าง
+- รัน `selftest_offline.py` ตรวจว่า pipeline ใช้ได้
+
+จากนั้น:
+
+```bash
+source .venv/bin/activate
+nano config/camera.env   # ใส่ IP / user / password กล้อง
+python scripts/check_camera.py
+```
+
+### ติดตั้งมือ (ทุก OS)
+
 ```bash
 cd face_attendance
 python3 -m venv .venv
