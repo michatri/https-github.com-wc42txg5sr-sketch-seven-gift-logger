@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}เวลาเข้า-ออก · School Check-in{% endblock %}
+{% block heading %}เวลาเข้า-ออกเรียน{% endblock %}
+
+{% block content %}
+<section class="summary summary-4">
+  <div>
+    <span class="label">นักเรียนทั้งหมด</span>
+    <strong>{{ total_students }}</strong>
+  </div>
+  <div>
+    <span class="label">เช็คเข้าวันนี้</span>
+    <strong>{{ total_today }}</strong>
+  </div>
+  <div>
+    <span class="label">เช็คออกวันนี้</span>
+    <strong>{{ total_out_today }}</strong>
+  </div>
+  <div>
+    <span class="label">ยังอยู่ในโรงเรียน</span>
+    <strong>{{ still_in_today }}</strong>
+  </div>
+</section>
+
+<form class="filters" method="get">
+  <label>
+    ค้นหา
+    <input type="search" name="q" value="{{ q }}" placeholder="รหัส หรือ ชื่อ">
+  </label>
+  <label>
+    วันที่
+    <input type="date" name="date" value="{{ date }}">
+  </label>
+  <button type="submit">กรอง</button>
+  {% if q or date %}
+  <a class="reset" href="{{ url_for('attendance') }}">ล้าง</a>
+  {% endif %}
+</form>
+
+<section class="table-wrap">
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>เวลาเข้า</th>
+        <th>เวลาออก</th>
+        <th>สถานะ</th>
+        <th>รหัส</th>
+        <th>ชื่อ</th>
+        <th>นามสกุล</th>
+        <th>นิ้วเข้า</th>
+        <th>นิ้วออก</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.check_in_at }}</td>
+        <td>{{ row.check_out_at or '-' }}</td>
+        <td>
+          {% if row.check_out_at %}
+          ออกแล้ว
+          {% else %}
+          อยู่ในโรงเรียน
+          {% endif %}
+        </td>
+        <td>{{ row.student_code }}</td>
+        <td>{{ row.first_name or row.name }}</td>
+        <td>{{ row.last_name or '-' }}</td>
+        <td>
+          {% if row.matched_finger_id is not none %}
+            {% if row.matched_hand == 'left' %}ซ้าย{% elif row.matched_hand == 'right' %}ขวา{% else %}-{% endif %}
+            #{{ row.matched_finger_id }}
+          {% else %}-{% endif %}
+        </td>
+        <td>
+          {% if row.check_out_finger_id is not none %}
+            {% if row.check_out_hand == 'left' %}ซ้าย{% elif row.check_out_hand == 'right' %}ขวา{% else %}-{% endif %}
+            #{{ row.check_out_finger_id }}
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">ยังไม่มีข้อมูลเวลาเข้า-ออก</p>
+  {% endif %}
+</section>
+{% endblock %}

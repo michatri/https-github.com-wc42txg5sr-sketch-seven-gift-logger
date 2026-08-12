@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}เช็คออก · School Check-in{% endblock %}
+{% block heading %}เช็คออกจากโรงเรียน{% endblock %}
+
+{% block content %}
+<section class="form-panel form-panel-wide">
+  <p class="hint">
+    เปิดหน้านี้แล้ววางนิ้วได้เลย — อย่าเปิดหน้าเช็คเข้าและเช็คออกพร้อมกัน
+  </p>
+
+  <div class="student-box ready-box" id="status-box">
+    <p class="ready-text" id="status-text">กำลังเปิดเซนเซอร์...</p>
+  </div>
+
+  <div class="result-box" id="result-box" hidden></div>
+  <p class="topup-message" id="message" hidden></p>
+</section>
+
+<script>
+(function () {
+  const statusText = document.getElementById("status-text");
+  const resultBox = document.getElementById("result-box");
+  const messageEl = document.getElementById("message");
+  let stopped = false;
+
+  function showMessage(text, ok) {
+    messageEl.hidden = false;
+    messageEl.textContent = text;
+    messageEl.className = "topup-message " + (ok ? "ok" : "error");
+  }
+
+  function setStatus(text, isError) {
+    statusText.textContent = text;
+    statusText.className = isError ? "error-text" : "ready-text";
+  }
+
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  async function listenLoop() {
+    while (!stopped) {
+      setStatus("R307 พร้อมแล้ว — วางนิ้วเพื่อเช็คออก");
+      showMessage("รอรับลายนิ้วมือ...", true);
+      try {
+        const res = await fetch("{{ url_for('api_checkout') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
+        let data = null;
+        try { data = await res.json(); }
+        catch (e) { throw new Error("เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (HTTP " + res.status + ")"); }
+        if (!res.ok || !data.ok) throw new Error(data.message || "เช็คออกไม่สำเร็จ");
+
+        const r = data.result;
+        resultBox.hidden = false;
+        resultBox.innerHTML =
+          "<p><strong>" + r.student_code + "</strong> " + r.name + "</p>" +
+          "<p>เข้า: " + r.check_in_at + "</p>" +
+          "<p>ออก: " + r.when + "</p>" +
+          "<p>มือ" + r.hand + " · นิ้ว #" + r.finger_id + " · คะแนน " + r.score + "</p>";
+        setStatus("เช็คออกสำเร็จ — พร้อมรับคนถัดไป");
+        showMessage(data.message + ": " + r.student_code + " " + r.name, true);
+        await sleep(1500);
+      } catch (err) {
+        const msg = err.message || "เกิดข้อผิดพลาด";
+        setStatus(msg, true);
+        showMessage(msg + " — รอสักครู่แล้วลองใหม่", false);
+        await sleep(2500);
+      }
+    }
+  }
+
+  window.addEventListener("beforeunload", function () { stopped = true; });
+  listenLoop();
+})();
+</script>
+{% endblock %}

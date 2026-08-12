@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}ร้านอาหาร · School Check-in{% endblock %}
+{% block heading %}ร้านขายอาหาร{% endblock %}
+
+{% block content %}
+<form class="filters" method="get">
+  <label>
+    ค้นหา
+    <input type="search" name="q" value="{{ q }}" placeholder="ชื่อร้าน">
+  </label>
+  <button type="submit">ค้นหา</button>
+  <a class="reset" href="{{ url_for('new_shop') }}">+ เพิ่มร้าน</a>
+  {% if q %}
+  <a class="reset" href="{{ url_for('shops') }}">ล้าง</a>
+  {% endif %}
+</form>
+
+<section class="table-wrap">
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>ชื่อร้าน</th>
+        <th>หมายเหตุ</th>
+        <th>สถานะ</th>
+        <th>ยอดขายสะสม</th>
+        <th>จำนวนครั้ง</th>
+        <th>สร้างเมื่อ</th>
+        <th>จัดการ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.name }}</td>
+        <td>{{ row.note or '-' }}</td>
+        <td>{% if row.is_active %}เปิดใช้{% else %}ปิด{% endif %}</td>
+        <td>{{ '{:,}'.format(row.total_sales or 0) }} บาท</td>
+        <td>{{ row.purchase_count }}</td>
+        <td>{{ row.created_at }}</td>
+        <td class="actions">
+          <a class="row-action" href="{{ url_for('edit_shop', shop_id=row.id) }}">แก้ไข</a>
+          <form class="inline-form" method="post" action="{{ url_for('delete_shop', shop_id=row.id) }}" onsubmit="return confirm('ลบหรือปิดร้าน {{ row.name }} ?');">
+            <button type="submit" class="link-danger">ลบ</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">ยังไม่มีร้าน — <a href="{{ url_for('new_shop') }}">เพิ่มร้าน</a></p>
+  {% endif %}
+</section>
+{% endblock %}

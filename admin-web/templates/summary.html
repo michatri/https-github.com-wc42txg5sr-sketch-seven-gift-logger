@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}สรุปยอด · School Check-in{% endblock %}
+{% block heading %}สรุปยอดเติมเงิน / เงินคงเหลือ{% endblock %}
+
+{% block content %}
+<section class="summary summary-4">
+  <div>
+    <span class="label">เงินคงเหลือรวม</span>
+    <strong>{{ '{:,}'.format(total_balance) }}</strong>
+    <span class="unit">บาท</span>
+  </div>
+  <div>
+    <span class="label">ยอดเติม{% if date %}วันที่เลือก{% else %}ทั้งหมด{% endif %}</span>
+    <strong>{{ '{:,}'.format(total_topup) }}</strong>
+    <span class="unit">บาท ({{ topup_count }} รายการ)</span>
+  </div>
+  <div>
+    <span class="label">เติมวันนี้</span>
+    <strong>{{ '{:,}'.format(today_topup) }}</strong>
+    <span class="unit">บาท ({{ today_topup_count }} รายการ)</span>
+  </div>
+  <div>
+    <span class="label">จำนวนนักเรียน</span>
+    <strong>{{ student_count }}</strong>
+    <span class="unit">คน</span>
+  </div>
+</section>
+
+<form class="filters" method="get">
+  <label>
+    ค้นหา
+    <input type="search" name="q" value="{{ q }}" placeholder="รหัส หรือ ชื่อ">
+  </label>
+  <label>
+    วันที่เติม
+    <input type="date" name="date" value="{{ date }}">
+  </label>
+  <button type="submit">กรอง</button>
+  {% if q or date %}
+  <a class="reset" href="{{ url_for('wallet_summary') }}">ล้าง</a>
+  {% endif %}
+</form>
+
+<section class="table-wrap">
+  <h2 class="section-title">เงินคงเหลือรายคน</h2>
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>รหัส</th>
+        <th>ชื่อ</th>
+        <th>นามสกุล</th>
+        <th>ยอดเติมสะสม</th>
+        <th>ครั้งที่เติม</th>
+        <th>เงินคงเหลือ</th>
+        <th>เติมล่าสุด</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.student_code }}</td>
+        <td>{{ row.first_name or row.name }}</td>
+        <td>{{ row.last_name or '-' }}</td>
+        <td>{{ '{:,}'.format(row.total_topup or 0) }} บาท</td>
+        <td>{{ row.topup_count }}</td>
+        <td><strong>{{ '{:,}'.format(row.balance or 0) }} บาท</strong></td>
+        <td>{{ row.last_topup_at or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">ยังไม่มีข้อมูลนักเรียน</p>
+  {% endif %}
+</section>
+
+<section class="table-wrap" style="margin-top: 1rem;">
+  <h2 class="section-title">ประวัติเติมเงิน</h2>
+  {% if recent %}
+  <table>
+    <thead>
+      <tr>
+        <th>เวลา</th>
+        <th>รหัส</th>
+        <th>ชื่อ</th>
+        <th>นามสกุล</th>
+        <th>จำนวนเติม</th>
+        <th>คงเหลือหลังเติม</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in recent %}
+      <tr>
+        <td>{{ row.created_at }}</td>
+        <td>{{ row.student_code }}</td>
+        <td>{{ row.first_name or row.name }}</td>
+        <td>{{ row.last_name or '-' }}</td>
+        <td>+{{ '{:,}'.format(row.amount) }} บาท</td>
+        <td>{{ '{:,}'.format(row.balance_after) }} บาท</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">ยังไม่มีประวัติเติมเงิน</p>
+  {% endif %}
+</section>
+{% endblock %}
