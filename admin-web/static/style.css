@@ -330,6 +330,10 @@ h1 {
   margin-bottom: 1rem;
 }
 
+.summary-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .summary > div {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -346,6 +350,19 @@ h1 {
 .summary strong {
   font-size: 1.8rem;
   color: var(--brand-deep);
+}
+
+.summary .unit {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.section-title {
+  margin: 0;
+  padding: 0.85rem 1rem 0;
+  font-size: 1.05rem;
 }
 
 .filters {

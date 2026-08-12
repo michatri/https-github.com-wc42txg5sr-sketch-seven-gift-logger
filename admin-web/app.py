@@ -872,6 +872,122 @@ def topup():
     return render_template("topup.html", recent=recent)
 
 
+@app.route("/summary")
+def wallet_summary():
+    db = get_db()
+    q = (request.args.get("q") or "").strip()
+    date = (request.args.get("date") or "").strip()
+
+    totals = db.execute(
+        """
+        SELECT
+          COUNT(*) AS student_count,
+          COALESCE(SUM(balance), 0) AS total_balance
+        FROM students
+        """
+    ).fetchone()
+
+    topup_totals_sql = """
+        SELECT
+          COALESCE(SUM(amount), 0) AS total_topup,
+          COUNT(*) AS topup_count
+        FROM topups
+        WHERE 1=1
+    """
+    topup_params: list[object] = []
+    if date:
+        topup_totals_sql += " AND date(created_at) = ?"
+        topup_params.append(date)
+
+    topup_totals = db.execute(topup_totals_sql, topup_params).fetchone()
+
+    today_topup = db.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total_topup, COUNT(*) AS topup_count
+        FROM topups
+        WHERE date(created_at) = date('now','localtime')
+        """
+    ).fetchone()
+
+    students_sql = """
+        SELECT
+          s.id,
+          s.student_code,
+          s.first_name,
+          s.last_name,
+          s.name,
+          s.balance,
+          COALESCE(SUM(t.amount), 0) AS total_topup,
+          COUNT(t.id) AS topup_count,
+          MAX(t.created_at) AS last_topup_at
+        FROM students s
+        LEFT JOIN topups t ON t.student_id = s.id
+        WHERE 1=1
+    """
+    student_params: list[object] = []
+    if q:
+        students_sql += """
+          AND (
+            s.student_code LIKE ?
+            OR s.name LIKE ?
+            OR s.first_name LIKE ?
+            OR s.last_name LIKE ?
+          )
+        """
+        like = f"%{q}%"
+        student_params.extend([like, like, like, like])
+    students_sql += """
+        GROUP BY s.id
+        ORDER BY s.balance DESC, s.student_code ASC
+    """
+    rows = db.execute(students_sql, student_params).fetchall()
+
+    recent_sql = """
+        SELECT
+          t.amount,
+          t.balance_after,
+          t.created_at,
+          s.student_code,
+          s.first_name,
+          s.last_name,
+          s.name
+        FROM topups t
+        JOIN students s ON s.id = t.student_id
+        WHERE 1=1
+    """
+    recent_params: list[object] = []
+    if date:
+        recent_sql += " AND date(t.created_at) = ?"
+        recent_params.append(date)
+    if q:
+        recent_sql += """
+          AND (
+            s.student_code LIKE ?
+            OR s.name LIKE ?
+            OR s.first_name LIKE ?
+            OR s.last_name LIKE ?
+          )
+        """
+        like = f"%{q}%"
+        recent_params.extend([like, like, like, like])
+    recent_sql += " ORDER BY t.id DESC LIMIT 50"
+    recent = db.execute(recent_sql, recent_params).fetchall()
+
+    return render_template(
+        "summary.html",
+        rows=rows,
+        recent=recent,
+        q=q,
+        date=date,
+        student_count=totals["student_count"],
+        total_balance=totals["total_balance"],
+        total_topup=topup_totals["total_topup"],
+        topup_count=topup_totals["topup_count"],
+        today_topup=today_topup["total_topup"],
+        today_topup_count=today_topup["topup_count"],
+    )
+
+
 if __name__ == "__main__":
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "5000"))

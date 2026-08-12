@@ -22,6 +22,7 @@
         <a href="{{ url_for('register') }}" class="{% if request.endpoint == 'register' %}active{% endif %}">เพิ่มนักเรียน</a>
         <a href="{{ url_for('checkin') }}" class="{% if request.endpoint == 'checkin' %}active{% endif %}">เช็คเข้า</a>
         <a href="{{ url_for('topup') }}" class="{% if request.endpoint == 'topup' %}active{% endif %}">เติมเงิน</a>
+        <a href="{{ url_for('wallet_summary') }}" class="{% if request.endpoint == 'wallet_summary' %}active{% endif %}">สรุปยอด</a>
       </nav>
     </header>
 
