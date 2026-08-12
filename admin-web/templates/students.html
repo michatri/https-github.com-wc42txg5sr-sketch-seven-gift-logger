@@ -9,6 +9,7 @@
     <input type="search" name="q" value="{{ q }}" placeholder="รหัส หรือ ชื่อ">
   </label>
   <button type="submit">ค้นหา</button>
+  <a class="reset" href="{{ url_for('register') }}">+ ลงทะเบียน</a>
   {% if q %}
   <a class="reset" href="{{ url_for('students') }}">ล้าง</a>
   {% endif %}
@@ -21,6 +22,7 @@
       <tr>
         <th>รหัส</th>
         <th>ชื่อ</th>
+        <th>นามสกุล</th>
         <th>นิ้ว #</th>
         <th>จำนวนครั้งเข้า</th>
         <th>เข้าล่าสุด</th>
@@ -31,7 +33,8 @@
       {% for row in rows %}
       <tr>
         <td>{{ row.student_code }}</td>
-        <td>{{ row.name }}</td>
+        <td>{{ row.first_name or row.name }}</td>
+        <td>{{ row.last_name or '-' }}</td>
         <td>{{ row.finger_id }}</td>
         <td>{{ row.checkin_count }}</td>
         <td>{{ row.last_check_in or '-' }}</td>

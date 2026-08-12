@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}ลงทะเบียนนักเรียน · School Check-in{% endblock %}
+{% block heading %}ลงทะเบียนนักเรียน{% endblock %}
+
+{% block content %}
+<section class="form-panel">
+  <p class="hint">
+    กรอกข้อมูลแล้วกดบันทึก จากนั้นวางนิ้วบนเซนเซอร์ <strong>2 ครั้ง</strong>
+    (นิ้วเดียวกัน มุมเดิม)
+  </p>
+
+  <form class="register-form" method="post">
+    <label>
+      รหัสนักเรียน
+      <input type="text" name="student_code" value="{{ form.student_code }}" required autocomplete="off">
+    </label>
+    <label>
+      ชื่อ
+      <input type="text" name="first_name" value="{{ form.first_name }}" required autocomplete="off">
+    </label>
+    <label>
+      นามสกุล
+      <input type="text" name="last_name" value="{{ form.last_name }}" required autocomplete="off">
+    </label>
+
+    <button type="submit">บันทึกและสแกนลายนิ้วมือ</button>
+  </form>
+</section>
+{% endblock %}

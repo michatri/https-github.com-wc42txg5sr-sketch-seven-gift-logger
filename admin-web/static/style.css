@@ -55,7 +55,82 @@ h1 {
 
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.flash-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.flash {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.flash-ok {
+  border-color: #8ebea4;
+  background: #e8f6ee;
+  color: var(--brand-deep);
+}
+
+.flash-error {
+  border-color: #d7a3a3;
+  background: #fdeeee;
+  color: #7a2424;
+}
+
+.form-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 1.25rem;
+  width: min(520px, 100%);
+}
+
+.hint {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.register-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.register-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.register-form input {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 0.75rem 0.85rem;
+  font: inherit;
+}
+
+.register-form input:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.register-form button {
+  margin-top: 0.35rem;
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: #fff;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .nav a {

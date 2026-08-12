@@ -37,6 +37,7 @@
         <th>เวลาเข้า</th>
         <th>รหัส</th>
         <th>ชื่อ</th>
+        <th>นามสกุล</th>
         <th>นิ้ว #</th>
       </tr>
     </thead>
@@ -45,7 +46,8 @@
       <tr>
         <td>{{ row.check_in_at }}</td>
         <td>{{ row.student_code }}</td>
-        <td>{{ row.name }}</td>
+        <td>{{ row.first_name or row.name }}</td>
+        <td>{{ row.last_name or '-' }}</td>
         <td>{{ row.finger_id }}</td>
       </tr>
       {% endfor %}
