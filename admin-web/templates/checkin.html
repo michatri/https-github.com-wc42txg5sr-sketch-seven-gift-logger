@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}เช็คเข้า · School Check-in{% endblock %}
+{% block heading %}เช็คเข้าเรียน{% endblock %}
+
+{% block content %}
+<section class="form-panel">
+  <p class="hint">
+    กดปุ่มแล้ววางนิ้วซ้ายหรือขวาที่ลงทะเบียนไว้ 1 ครั้ง
+  </p>
+  <form method="post" class="register-form">
+    <button type="submit">สแกนเพื่อเช็คเข้า</button>
+  </form>
+
+  {% if result and result.ok %}
+  <div class="result-box">
+    <p><strong>{{ result.student_code }}</strong> {{ result.name }}</p>
+    <p>มือ{{ result.hand }} · นิ้ว #{{ result.finger_id }} · คะแนน {{ result.score }}</p>
+    <p>{{ result.when }}</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

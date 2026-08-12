@@ -5,8 +5,9 @@
 {% block content %}
 <section class="form-panel">
   <p class="hint">
-    กรอกข้อมูลแล้วกดบันทึก จากนั้นวางนิ้วบนเซนเซอร์ <strong>2 ครั้ง</strong>
-    (นิ้วเดียวกัน มุมเดิม)
+    กรอกข้อมูลแล้วกดบันทึก จากนั้นสแกนทีละมือ:
+    <strong>นิ้วมือซ้าย 2 ครั้ง</strong> แล้วต่อด้วย
+    <strong>นิ้วมือขวา 2 ครั้ง</strong>
   </p>
 
   <form class="register-form" method="post">
@@ -23,7 +24,7 @@
       <input type="text" name="last_name" value="{{ form.last_name }}" required autocomplete="off">
     </label>
 
-    <button type="submit">บันทึกและสแกนลายนิ้วมือ</button>
+    <button type="submit">บันทึกและสแกน 2 นิ้ว</button>
   </form>
 </section>
 {% endblock %}

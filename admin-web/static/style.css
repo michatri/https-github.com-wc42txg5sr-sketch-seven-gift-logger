@@ -165,6 +165,31 @@ h1 {
   text-decoration: underline;
 }
 
+.check-row {
+  display: flex !important;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--ink) !important;
+  font-size: 0.98rem !important;
+}
+
+.check-row input {
+  width: auto;
+  margin: 0;
+}
+
+.result-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #8ebea4;
+  background: #e8f6ee;
+  color: var(--brand-deep);
+}
+
+.result-box p {
+  margin: 0.25rem 0;
+}
+
 .nav a {
   text-decoration: none;
   color: var(--ink);

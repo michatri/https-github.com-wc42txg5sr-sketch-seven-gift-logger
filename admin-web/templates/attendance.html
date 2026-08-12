@@ -38,6 +38,7 @@
         <th>รหัส</th>
         <th>ชื่อ</th>
         <th>นามสกุล</th>
+        <th>มือ</th>
         <th>นิ้ว #</th>
       </tr>
     </thead>
@@ -48,7 +49,17 @@
         <td>{{ row.student_code }}</td>
         <td>{{ row.first_name or row.name }}</td>
         <td>{{ row.last_name or '-' }}</td>
-        <td>{{ row.finger_id }}</td>
+        <td>
+          {% if row.matched_hand == 'left' %}ซ้าย
+          {% elif row.matched_hand == 'right' %}ขวา
+          {% else %}-{% endif %}
+        </td>
+        <td>
+          {% if row.matched_finger_id is not none %}#{{ row.matched_finger_id }}
+          {% elif row.finger_right_id is not none %}#{{ row.finger_right_id }}
+          {% elif row.finger_id is not none %}#{{ row.finger_id }}
+          {% else %}-{% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

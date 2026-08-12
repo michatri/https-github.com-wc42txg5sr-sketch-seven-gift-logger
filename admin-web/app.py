@@ -41,23 +41,44 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
           name TEXT NOT NULL,
           first_name TEXT NOT NULL DEFAULT '',
           last_name TEXT NOT NULL DEFAULT '',
-          finger_id INTEGER UNIQUE NOT NULL,
+          finger_id INTEGER UNIQUE,
+          finger_left_id INTEGER UNIQUE,
+          finger_right_id INTEGER UNIQUE,
           created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
         );
         CREATE TABLE IF NOT EXISTS attendance (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           student_id INTEGER NOT NULL,
           check_in_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+          matched_hand TEXT,
+          matched_finger_id INTEGER,
           FOREIGN KEY(student_id) REFERENCES students(id)
         );
         """
     )
-    cols = {row["name"] for row in conn.execute("PRAGMA table_info(students)")}
-    if "first_name" not in cols:
+    student_cols = {row["name"] for row in conn.execute("PRAGMA table_info(students)")}
+    attendance_cols = {row["name"] for row in conn.execute("PRAGMA table_info(attendance)")}
+
+    if "first_name" not in student_cols:
         conn.execute("ALTER TABLE students ADD COLUMN first_name TEXT NOT NULL DEFAULT ''")
-    if "last_name" not in cols:
+    if "last_name" not in student_cols:
         conn.execute("ALTER TABLE students ADD COLUMN last_name TEXT NOT NULL DEFAULT ''")
-    # Backfill from old single name field
+    if "finger_left_id" not in student_cols:
+        conn.execute("ALTER TABLE students ADD COLUMN finger_left_id INTEGER UNIQUE")
+    if "finger_right_id" not in student_cols:
+        conn.execute("ALTER TABLE students ADD COLUMN finger_right_id INTEGER UNIQUE")
+    if "matched_hand" not in attendance_cols:
+        conn.execute("ALTER TABLE attendance ADD COLUMN matched_hand TEXT")
+    if "matched_finger_id" not in attendance_cols:
+        conn.execute("ALTER TABLE attendance ADD COLUMN matched_finger_id INTEGER")
+
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_students_finger_left ON students(finger_left_id)"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_students_finger_right ON students(finger_right_id)"
+    )
+
     conn.execute(
         """
         UPDATE students
@@ -73,6 +94,14 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
               ELSE last_name
             END
         WHERE first_name = '' OR last_name = ''
+        """
+    )
+    # Old single finger_id becomes right-hand finger by default
+    conn.execute(
+        """
+        UPDATE students
+        SET finger_right_id = finger_id
+        WHERE finger_right_id IS NULL AND finger_id IS NOT NULL
         """
     )
     conn.commit()
@@ -106,7 +135,7 @@ def open_sensor():
     return sensor
 
 
-def wait_for_finger(sensor, timeout_sec: int = 30) -> None:
+def wait_for_finger(sensor, timeout_sec: int = 40) -> None:
     started = time.time()
     while not sensor.readImage():
         if time.time() - started > timeout_sec:
@@ -122,14 +151,15 @@ def wait_for_finger_removed(sensor, timeout_sec: int = 20) -> None:
         time.sleep(0.15)
 
 
-def enroll_fingerprint() -> int:
-    sensor = open_sensor()
+def enroll_fingerprint(sensor=None, hand_label: str = "นิ้ว") -> tuple[object, int]:
+    if sensor is None:
+        sensor = open_sensor()
 
     wait_for_finger(sensor)
     sensor.convertImage(0x01)
     position, _score = sensor.searchTemplate()
     if position >= 0:
-        raise RuntimeError(f"ลายนิ้วมือนี้อยู่ในระบบแล้ว (นิ้ว #{position})")
+        raise RuntimeError(f"{hand_label}: ลายนิ้วมือนี้อยู่ในระบบแล้ว (นิ้ว #{position})")
 
     wait_for_finger_removed(sensor)
     time.sleep(0.5)
@@ -137,10 +167,43 @@ def enroll_fingerprint() -> int:
     sensor.convertImage(0x02)
 
     if sensor.compareCharacteristics() == 0:
-        raise RuntimeError("ลายนิ้วมือสองครั้งไม่ตรงกัน กรุณาลองใหม่")
+        raise RuntimeError(f"{hand_label}: ลายนิ้วมือสองครั้งไม่ตรงกัน กรุณาลองใหม่")
 
     sensor.createTemplate()
-    return int(sensor.storeTemplate())
+    return sensor, int(sensor.storeTemplate())
+
+
+def delete_template(sensor, position: int | None) -> None:
+    if sensor is None or position is None:
+        return
+    try:
+        sensor.deleteTemplate(position)
+    except Exception:
+        pass
+
+
+def find_student_by_finger(db: sqlite3.Connection, finger_pos: int):
+    return db.execute(
+        """
+        SELECT id, student_code, first_name, last_name, name,
+               finger_id, finger_left_id, finger_right_id
+        FROM students
+        WHERE finger_left_id = ?
+           OR finger_right_id = ?
+           OR finger_id = ?
+        """,
+        (finger_pos, finger_pos, finger_pos),
+    ).fetchone()
+
+
+def matched_hand_for(student, finger_pos: int) -> str:
+    if student["finger_left_id"] == finger_pos:
+        return "left"
+    if student["finger_right_id"] == finger_pos:
+        return "right"
+    if student["finger_id"] == finger_pos:
+        return "right"
+    return "unknown"
 
 
 @app.route("/")
@@ -152,10 +215,14 @@ def attendance():
         SELECT
             a.id,
             a.check_in_at,
+            a.matched_hand,
+            a.matched_finger_id,
             s.student_code,
             s.first_name,
             s.last_name,
             s.name,
+            s.finger_left_id,
+            s.finger_right_id,
             s.finger_id
         FROM attendance a
         JOIN students s ON s.id = a.student_id
@@ -207,6 +274,8 @@ def students():
             s.last_name,
             s.name,
             s.finger_id,
+            s.finger_left_id,
+            s.finger_right_id,
             s.created_at,
             COUNT(a.id) AS checkin_count,
             MAX(a.check_in_at) AS last_check_in
@@ -233,17 +302,15 @@ def students():
 
 
 def get_student_or_404(student_id: int):
-    row = get_db().execute(
+    return get_db().execute(
         """
-        SELECT id, student_code, first_name, last_name, name, finger_id, created_at
+        SELECT id, student_code, first_name, last_name, name,
+               finger_id, finger_left_id, finger_right_id, created_at
         FROM students
         WHERE id = ?
         """,
         (student_id,),
     ).fetchone()
-    if not row:
-        return None
-    return row
 
 
 @app.route("/students/<int:student_id>/edit", methods=["GET", "POST"])
@@ -257,12 +324,16 @@ def edit_student(student_id: int):
         "student_code": student["student_code"],
         "first_name": student["first_name"] or student["name"],
         "last_name": student["last_name"] or "",
+        "rescan_left": False,
+        "rescan_right": False,
     }
 
     if request.method == "POST":
         form["student_code"] = (request.form.get("student_code") or "").strip()
         form["first_name"] = (request.form.get("first_name") or "").strip()
         form["last_name"] = (request.form.get("last_name") or "").strip()
+        form["rescan_left"] = request.form.get("rescan_left") == "1"
+        form["rescan_right"] = request.form.get("rescan_right") == "1"
 
         if not form["student_code"] or not form["first_name"] or not form["last_name"]:
             flash("กรุณากรอกรหัส ชื่อ และนามสกุลให้ครบ", "error")
@@ -280,11 +351,37 @@ def edit_student(student_id: int):
             flash("รหัสนักเรียนนี้มีอยู่แล้ว", "error")
             return render_template("edit_student.html", form=form, student=student), 400
 
+        left_id = student["finger_left_id"]
+        right_id = student["finger_right_id"] or student["finger_id"]
+        sensor = None
+        new_left = None
+        new_right = None
+
+        try:
+            if form["rescan_left"]:
+                sensor, new_left = enroll_fingerprint(sensor, "นิ้วมือซ้าย")
+            if form["rescan_right"]:
+                sensor, new_right = enroll_fingerprint(sensor, "นิ้วมือขวา")
+        except Exception as exc:
+            delete_template(sensor, new_left)
+            delete_template(sensor, new_right)
+            flash(f"สแกนนิ้วไม่สำเร็จ: {exc}", "error")
+            return render_template("edit_student.html", form=form, student=student), 400
+
+        if new_left is not None:
+            delete_template(sensor, left_id)
+            left_id = new_left
+        if new_right is not None:
+            delete_template(sensor, right_id)
+            right_id = new_right
+
         display_name = full_name(form["first_name"], form["last_name"])
+        compat_finger = right_id if right_id is not None else left_id
         db.execute(
             """
             UPDATE students
-            SET student_code = ?, name = ?, first_name = ?, last_name = ?
+            SET student_code = ?, name = ?, first_name = ?, last_name = ?,
+                finger_id = ?, finger_left_id = ?, finger_right_id = ?
             WHERE id = ?
             """,
             (
@@ -292,6 +389,9 @@ def edit_student(student_id: int):
                 display_name,
                 form["first_name"],
                 form["last_name"],
+                compat_finger,
+                left_id,
+                right_id,
                 student_id,
             ),
         )
@@ -328,34 +428,93 @@ def register():
             flash("รหัสนักเรียนนี้มีอยู่แล้ว", "error")
             return render_template("register.html", form=form), 400
 
+        sensor = None
+        left_id = None
+        right_id = None
         try:
-            finger_id = enroll_fingerprint()
+            sensor, left_id = enroll_fingerprint(None, "นิ้วมือซ้าย")
+            sensor, right_id = enroll_fingerprint(sensor, "นิ้วมือขวา")
             display_name = full_name(form["first_name"], form["last_name"])
             db.execute(
                 """
-                INSERT INTO students(student_code, name, first_name, last_name, finger_id)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO students(
+                  student_code, name, first_name, last_name,
+                  finger_id, finger_left_id, finger_right_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     form["student_code"],
                     display_name,
                     form["first_name"],
                     form["last_name"],
-                    finger_id,
+                    right_id,
+                    left_id,
+                    right_id,
                 ),
             )
             db.commit()
         except Exception as exc:
+            delete_template(sensor, left_id)
+            delete_template(sensor, right_id)
             flash(f"ลงทะเบียนไม่สำเร็จ: {exc}", "error")
             return render_template("register.html", form=form), 400
 
         flash(
-            f"ลงทะเบียนสำเร็จ: {form['student_code']} {display_name} (นิ้ว #{finger_id})",
+            f"ลงทะเบียนสำเร็จ: {form['student_code']} {display_name} "
+            f"(ซ้าย #{left_id}, ขวา #{right_id})",
             "ok",
         )
         return redirect(url_for("students"))
 
     return render_template("register.html", form=form)
+
+
+@app.route("/checkin", methods=["GET", "POST"])
+def checkin():
+    result = None
+    if request.method == "POST":
+        db = get_db()
+        try:
+            sensor = open_sensor()
+            wait_for_finger(sensor, timeout_sec=30)
+            sensor.convertImage(0x01)
+            position, score = sensor.searchTemplate()
+            if position < 0:
+                raise RuntimeError("ไม่พบลายนิ้วมือในระบบ")
+
+            student = find_student_by_finger(db, position)
+            if not student:
+                raise RuntimeError(f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน")
+
+            hand = matched_hand_for(student, position)
+            db.execute(
+                """
+                INSERT INTO attendance(student_id, matched_hand, matched_finger_id)
+                VALUES (?, ?, ?)
+                """,
+                (student["id"], hand, position),
+            )
+            db.commit()
+            when = db.execute("SELECT datetime('now','localtime')").fetchone()[0]
+            result = {
+                "ok": True,
+                "student_code": student["student_code"],
+                "name": full_name(student["first_name"] or student["name"], student["last_name"] or ""),
+                "hand": "ซ้าย" if hand == "left" else "ขวา" if hand == "right" else "-",
+                "finger_id": position,
+                "score": score,
+                "when": when,
+            }
+            flash(
+                f"เช็คเข้าสำเร็จ: {result['student_code']} {result['name']} "
+                f"({result['hand']} #{position})",
+                "ok",
+            )
+        except Exception as exc:
+            flash(f"เช็คเข้าไม่สำเร็จ: {exc}", "error")
+
+    return render_template("checkin.html", result=result)
 
 
 if __name__ == "__main__":

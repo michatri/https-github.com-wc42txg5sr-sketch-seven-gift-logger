@@ -20,6 +20,7 @@
         <a href="{{ url_for('attendance') }}" class="{% if request.endpoint == 'attendance' %}active{% endif %}">เวลาเข้า</a>
         <a href="{{ url_for('students') }}" class="{% if request.endpoint == 'students' %}active{% endif %}">รายชื่อนักเรียน</a>
         <a href="{{ url_for('register') }}" class="{% if request.endpoint == 'register' %}active{% endif %}">ลงทะเบียน</a>
+        <a href="{{ url_for('checkin') }}" class="{% if request.endpoint == 'checkin' %}active{% endif %}">เช็คเข้า</a>
       </nav>
     </header>
 

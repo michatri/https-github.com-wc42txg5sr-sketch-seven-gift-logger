@@ -5,7 +5,8 @@
 {% block content %}
 <section class="form-panel">
   <p class="hint">
-    แก้ไขรหัส ชื่อ นามสกุลได้ โดยลายนิ้วมือเดิม (นิ้ว #{{ student.finger_id }}) ยังใช้ได้ตามเดิม
+    นิ้วมือซ้าย: {% if student.finger_left_id is not none %}#{{ student.finger_left_id }}{% else %}ยังไม่มี{% endif %}<br>
+    นิ้วมือขวา: {% if student.finger_right_id is not none %}#{{ student.finger_right_id }}{% elif student.finger_id is not none %}#{{ student.finger_id }}{% else %}ยังไม่มี{% endif %}
   </p>
 
   <form class="register-form" method="post">
@@ -20,6 +21,15 @@
     <label>
       นามสกุล
       <input type="text" name="last_name" value="{{ form.last_name }}" required autocomplete="off">
+    </label>
+
+    <label class="check-row">
+      <input type="checkbox" name="rescan_left" value="1" {% if form.rescan_left %}checked{% endif %}>
+      สแกนนิ้วมือซ้ายใหม่ (วาง 2 ครั้ง)
+    </label>
+    <label class="check-row">
+      <input type="checkbox" name="rescan_right" value="1" {% if form.rescan_right %}checked{% endif %}>
+      สแกนนิ้วมือขวาใหม่ (วาง 2 ครั้ง)
     </label>
 
     <div class="form-actions">
