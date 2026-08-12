@@ -38,8 +38,8 @@ def main() -> None:
     if not hits:
         raise SystemExit("FAIL: ไม่พบใบหน้าในรูปตัวอย่าง")
 
-    person_dir = enroll_from_image(pipeline, sample, "demo_lena")
-    print(f"enroll: {person_dir}")
+    meta = enroll_from_image(pipeline, sample, "demo_lena")
+    print(f"enroll: {meta['person_id']}")
 
     gallery = load_gallery(pipeline)
     emb = pipeline.embed(img, hits[0])

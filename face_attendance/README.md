@@ -60,6 +60,32 @@ nano config/camera.env   # ใส่ IP / user / password กล้อง
 python scripts/check_camera.py
 ```
 
+### เว็บลงทะเบียนใบหน้า
+
+```bash
+cd face_attendance
+source .venv/bin/activate
+pip install -r requirements.txt   # ถ้ายังไม่เคยอัปเดตหลังมีเว็บ
+chmod +x scripts/run_web.sh
+./scripts/run_web.sh
+```
+
+เปิดเบราว์เซอร์จากเครื่องใน LAN เดียวกัน:
+```text
+http://IPของUbuntu:8080
+```
+
+ในหน้าเว็บทำได้:
+- อัปโหลดรูปเพื่อลงทะเบียน
+- กด **ถ่ายจากกล้อง DS** เพื่อ snapshot จาก RTSP แล้วลงทะเบียน
+- กด **ดูภาพกล้อง** เพื่อเช็กมุม/แสง/จำนวนใบหน้า
+- ดูรายชื่อ / ลบรายการที่ลงทะเบียนแล้ว
+
+ถ้า firewall เปิดอยู่:
+```bash
+sudo ufw allow 8080/tcp
+```
+
 ### ติดตั้งมือ (ทุก OS)
 
 ```bash

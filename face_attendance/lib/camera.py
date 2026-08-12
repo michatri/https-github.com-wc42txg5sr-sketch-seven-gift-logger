@@ -40,7 +40,7 @@ def build_rtsp_url() -> str:
     password = quote(os.getenv("CAMERA_PASS", "").strip(), safe="")
     channel = os.getenv("CAMERA_CHANNEL", "101").strip()
     if not password:
-        raise SystemExit(
+        raise RuntimeError(
             "ตั้ง CAMERA_PASS ใน face_attendance/config/camera.env ก่อน "
             "หรือใส่ RTSP_URL ตรง ๆ"
         )
@@ -60,7 +60,7 @@ def open_capture(source: str | int | None = None) -> cv2.VideoCapture:
         cap = cv2.VideoCapture(source)
 
     if not cap.isOpened():
-        raise SystemExit(f"เปิดแหล่งภาพไม่สำเร็จ: {source}")
+        raise RuntimeError(f"เปิดแหล่งภาพไม่สำเร็จ: {source}")
     return cap
 
 
@@ -69,8 +69,16 @@ def grab_frame(cap: cv2.VideoCapture, warmup: int = 5) -> np.ndarray:
     for _ in range(max(warmup, 1)):
         ok, frame = cap.read()
         if not ok or frame is None:
-            raise SystemExit("อ่านเฟรมจากกล้องไม่ได้ — เช็ก IP/รหัส/เครือข่าย/RTSP")
+            raise RuntimeError("อ่านเฟรมจากกล้องไม่ได้ — เช็ก IP/รหัส/เครือข่าย/RTSP")
     return frame
+
+
+def snapshot_from_camera(warmup: int = 8) -> np.ndarray:
+    cap = open_capture()
+    try:
+        return grab_frame(cap, warmup=warmup)
+    finally:
+        cap.release()
 
 
 @dataclass
@@ -88,7 +96,7 @@ class FacePipeline:
 
     def __init__(self, score_threshold: float = 0.7) -> None:
         if not YUNET_PATH.exists() or not SFACE_PATH.exists():
-            raise SystemExit("ไม่พบโมเดลใน face_attendance/models/")
+            raise RuntimeError("ไม่พบโมเดลใน face_attendance/models/")
 
         self.score_threshold = score_threshold
         self.detector = cv2.FaceDetectorYN.create(

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
 
 from face_attendance.lib.camera import FacePipeline, ensure_data_dirs, grab_frame, open_capture  # noqa: E402
-from face_attendance.lib.gallery import enroll_from_image  # noqa: E402
+from face_attendance.lib.gallery import EnrollmentError, enroll_from_image  # noqa: E402
 
 
 def main() -> None:
@@ -31,24 +31,29 @@ def main() -> None:
     ensure_data_dirs()
     pipeline = FacePipeline()
 
-    if args.from_camera:
-        source = int(args.source) if args.source and args.source.isdigit() else args.source
-        cap = open_capture(source)
-        frame = grab_frame(cap, warmup=8)
-        cap.release()
-        tmp = ROOT / "data" / "enrolled" / f"{args.person_id}_capture.jpg"
-        tmp.parent.mkdir(parents=True, exist_ok=True)
-        cv2.imwrite(str(tmp), frame)
-        image_path = tmp
-        print(f"บันทึก snapshot: {image_path}")
-    elif args.image:
-        image_path = Path(args.image)
-    else:
-        raise SystemExit("ใส่ --image หรือ --from-camera")
+    try:
+        if args.from_camera:
+            source = int(args.source) if args.source and args.source.isdigit() else args.source
+            cap = open_capture(source)
+            frame = grab_frame(cap, warmup=8)
+            cap.release()
+            tmp = ROOT / "data" / "enrolled" / f"{args.person_id}_capture.jpg"
+            tmp.parent.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(str(tmp), frame)
+            image_path = tmp
+            print(f"บันทึก snapshot: {image_path}")
+        elif args.image:
+            image_path = Path(args.image)
+        else:
+            raise SystemExit("ใส่ --image หรือ --from-camera")
 
-    person_dir = enroll_from_image(pipeline, image_path, args.person_id)
-    print(f"ลงทะเบียนสำเร็จ: {args.person_id}")
-    print(f"  gallery: {person_dir}")
+        meta = enroll_from_image(pipeline, image_path, args.person_id)
+    except (EnrollmentError, RuntimeError) as exc:
+        raise SystemExit(str(exc)) from exc
+
+    print(f"ลงทะเบียนสำเร็จ: {meta['person_id']}")
+    print(f"  display_name: {meta.get('display_name')}")
+    print(f"  face_score: {meta.get('face_score')}")
 
 
 if __name__ == "__main__":

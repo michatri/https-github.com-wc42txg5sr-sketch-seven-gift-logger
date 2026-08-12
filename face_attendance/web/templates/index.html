@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ลงทะเบียนใบหน้า | Face Attendance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="brand">ลงทะเบียนใบหน้า</div>
+      <p class="sub">เพิ่มนักเรียนเข้าสู่ระบบจดจำใบหน้าจากกล้อง Hikvision หรืออัปโหลดรูปตรงหน้า</p>
+    </header>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>เพิ่มรายชื่อใหม่</h2>
+        <form id="enroll-form" class="fields">
+          <label>
+            รหัสนักเรียน / Person ID
+            <input id="person_id" name="person_id" type="text" required
+                   placeholder="เช่น S001_somchai" autocomplete="off" />
+          </label>
+          <label>
+            ชื่อที่แสดง
+            <input id="display_name" name="display_name" type="text"
+                   placeholder="เช่น สมชาย ใจดี" autocomplete="off" />
+          </label>
+          <label>
+            อัปโหลดรูปใบหน้า (ถ้าไม่ใช้กล้อง)
+            <input id="image" name="image" type="file" accept="image/*" />
+          </label>
+
+          <div class="actions">
+            <button type="submit" class="btn-primary" id="btn-upload">บันทึกจากรูป</button>
+            <button type="button" class="btn-secondary" id="btn-camera">ถ่ายจากกล้อง DS</button>
+            <button type="button" class="btn-ghost" id="btn-preview">ดูภาพกล้อง</button>
+          </div>
+        </form>
+
+        <div id="status" class="status" aria-live="polite"></div>
+        <p class="hint">
+          แนะนำ: ยืนคนเดียว หันตรงเข้ากล้อง แสงพอ ไม่สวมหมวก/แมสก์
+          รหัสใช้ได้เฉพาะ a-z, 0-9, _ และ -
+        </p>
+
+        <div class="preview-box" id="preview-box">
+          <div class="placeholder">กด “ดูภาพกล้อง” เพื่อดึง snapshot จาก DS-2CD2146G2-I</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="list-head">
+          <h2>รายชื่อที่ลงทะเบียนแล้ว</h2>
+          <div class="count"><span id="count">{{ people_count }}</span> คน</div>
+        </div>
+        <div id="people" class="people">
+          <div class="empty">กำลังโหลด...</div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
