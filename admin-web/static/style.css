@@ -475,6 +475,28 @@ tbody tr:hover {
   margin-bottom: 0.9rem;
 }
 
+.topup-fields.single {
+  grid-template-columns: 1fr;
+}
+
+.scan-finger-btn {
+  width: 100%;
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: #fff;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  min-height: 4rem;
+  margin-bottom: 0.9rem;
+  cursor: pointer;
+}
+
+.scan-finger-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .field-card {
   border: 1px solid var(--line);
   background: #fff;

@@ -731,6 +731,34 @@ def student_payload(row) -> dict:
     }
 
 
+@app.route("/api/identify-finger", methods=["POST"])
+def api_identify_finger():
+    db = get_db()
+    try:
+        sensor = open_sensor()
+        wait_for_finger(sensor, timeout_sec=30)
+        sensor.convertImage(0x01)
+        position, score = sensor.searchTemplate()
+        if position < 0:
+            return jsonify(ok=False, message="ไม่พบลายนิ้วมือในระบบ"), 404
+
+        student = find_student_by_finger(db, position)
+        if not student:
+            return jsonify(
+                ok=False,
+                message=f"พบนิ้ว #{position} แต่ยังไม่ได้ผูกกับนักเรียน",
+            ), 404
+
+        hand = matched_hand_for(student, position)
+        payload = student_payload(student)
+        payload["finger_id"] = position
+        payload["hand"] = hand
+        payload["score"] = score
+        return jsonify(ok=True, student=payload)
+    except Exception as exc:
+        return jsonify(ok=False, message=str(exc)), 400
+
+
 @app.route("/api/student-by-code", methods=["POST"])
 def api_student_by_code():
     data = request.get_json(silent=True) or {}
@@ -761,7 +789,7 @@ def api_topup():
         return jsonify(ok=False, message="จำนวนเงินไม่ถูกต้อง"), 400
 
     if not code:
-        return jsonify(ok=False, message="กรุณาใส่รหัสนักเรียน"), 400
+        return jsonify(ok=False, message="กรุณาสแกนลายนิ้วมือก่อน"), 400
     if amount <= 0:
         return jsonify(ok=False, message="จำนวนเงินต้องมากกว่า 0"), 400
     if amount > 100000:
@@ -786,7 +814,7 @@ def api_topup():
         INSERT INTO topups(student_id, amount, balance_after, note)
         VALUES (?, ?, ?, ?)
         """,
-        (row["id"], amount, new_balance, "web-topup"),
+        (row["id"], amount, new_balance, data.get("note") or "fingerprint-topup"),
     )
     db.commit()
 
