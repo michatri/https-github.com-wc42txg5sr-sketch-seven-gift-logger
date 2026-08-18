@@ -68,7 +68,33 @@ sudo fuser -k 8080/tcp
 curl http://127.0.0.1:8080/api/health
 ```
 
-## ตารางหลัก
+## 5) เปิดให้ Navicat Premium ต่อได้
+
+บน server:
+```bash
+cd face_attendance
+chmod +x scripts/enable_mysql_remote.sh
+./scripts/enable_mysql_remote.sh
+```
+
+ใน Navicat สร้าง connection ใหม่:
+
+| ช่อง | ค่า |
+|---|---|
+| Connection Type | MySQL / MariaDB |
+| Host | `192.168.10.56` (IP server) |
+| Port | `3306` |
+| User Name | `faceapp` |
+| Password | ตาม `config/database.env` |
+| Database | `face_attendance` |
+
+กด **Test Connection** แล้ว Save
+
+ถ้าติด:
+- `sudo ufw allow 3306/tcp`
+- ตรวจว่า MariaDB ฟังพอร์ต: `ss -lntp | grep 3306`
+- ปิด VPN บนเครื่องที่เปิด Navicat
+- ยืนยันว่าเครื่อง Navicat อยู่ subnet เดียว เช่น `192.168.10.x`
 
 | ตาราง | ใช้เก็บ |
 |---|---|
