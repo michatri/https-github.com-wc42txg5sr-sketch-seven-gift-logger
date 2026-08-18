@@ -53,6 +53,10 @@ def create_app(test_config: dict | None = None) -> Flask:
 
 
 def register_routes(app: Flask) -> None:
+    @app.get("/health")
+    def health():
+        return {"ok": True, "service": "accounting"}, 200
+
     @app.get("/")
     def dashboard():
         today = date.today().isoformat()

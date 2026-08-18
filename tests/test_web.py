@@ -4,6 +4,13 @@ def test_dashboard_ok(client):
     assert "รายรับ-รายจ่าย".encode("utf-8") in response.data
 
 
+def test_health(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.get_json()["ok"] is True
+    assert response.get_json()["service"] == "accounting"
+
+
 def test_create_payslip_via_form(client):
     response = client.post(
         "/payslips",
