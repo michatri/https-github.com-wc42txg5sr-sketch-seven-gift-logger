@@ -1,0 +1,17 @@
+[Unit]
+Description=Face Attendance Web (Hikvision)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/https-github.com-wc42txg5sr-sketch-seven-gift-logger/face_attendance
+Environment=PYTHONPATH=/root/https-github.com-wc42txg5sr-sketch-seven-gift-logger
+ExecStart=/root/https-github.com-wc42txg5sr-sketch-seven-gift-logger/face_attendance/.venv/bin/python -m uvicorn face_attendance.web.app:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

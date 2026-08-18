@@ -60,7 +60,24 @@ nano config/camera.env   # ใส่ IP / user / password กล้อง
 python scripts/check_camera.py
 ```
 
-### เว็บลงทะเบียนใบหน้า
+### เปิดเว็บอัตโนมัติตอนบูต (แนะนำ)
+
+ไม่ต้องรัน `./scripts/run_web.sh` เองทุกครั้ง:
+
+```bash
+cd face_attendance
+chmod +x scripts/install_systemd.sh
+./scripts/install_systemd.sh
+```
+
+คำสั่งใช้ประจำ:
+```bash
+sudo systemctl status face-attendance
+sudo systemctl restart face-attendance
+sudo journalctl -u face-attendance -f
+```
+
+### เว็บลงทะเบียนใบหน้า (รันมือ)
 
 ```bash
 cd face_attendance
