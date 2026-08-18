@@ -3,7 +3,7 @@
 # ค่าเริ่มต้นใช้พอร์ต 8090 เพื่อไม่ชนกับ Face Attendance ที่ 8080
 set -euo pipefail
 
-TOMCAT_HTTP_PORT="${TOMCAT_HTTP_PORT:-8090}"
+TOMCAT_HTTP_PORT="${TOMCAT_HTTP_PORT:-8888}"
 TOMCAT_SHUTDOWN_PORT="${TOMCAT_SHUTDOWN_PORT:-8005}"
 TOMCAT_AJP_PORT="${TOMCAT_AJP_PORT:-8009}"
 

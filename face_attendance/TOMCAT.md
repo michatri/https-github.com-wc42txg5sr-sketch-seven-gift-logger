@@ -2,7 +2,7 @@
 
 Tomcat ใช้สำหรับรันเว็บแอป Java (WAR)  
 ระบบ Face Attendance ปัจจุบันเป็น Python (FastAPI) ยังรันด้วย systemd ที่พอร์ต **8080**  
-จึงตั้ง Tomcat ที่พอร์ต **8090** เพื่อไม่ชนกัน
+จึงตั้ง Tomcat ที่พอร์ต **8888** เพื่อไม่ชนกัน
 
 ## ติดตั้งบน Ubuntu
 
@@ -17,7 +17,7 @@ chmod +x scripts/setup_tomcat_ubuntu.sh
 
 เปิดเบราว์เซอร์:
 ```text
-http://192.168.10.56:8090/
+http://192.168.10.56:8888/
 ```
 
 ## พอร์ตที่แยกกัน
@@ -25,7 +25,7 @@ http://192.168.10.56:8090/
 | บริการ | พอร์ต | วิธีเปิด |
 |---|---|---|
 | Face Attendance (Python) | 8080 | `face-attendance.service` |
-| Jakarta Tomcat | 8090 | `tomcat10.service` |
+| Jakarta Tomcat | 8888 | `tomcat10.service` |
 | MySQL/MariaDB | 3306 | `mariadb` / `mysql` |
 
 ## คำสั่งใช้ประจำ
