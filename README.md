@@ -17,18 +17,21 @@
 
 ดูขั้นตอนเต็มใน [`DEPLOY.md`](DEPLOY.md)
 
-บน `cameraserver` (root):
+SSH จากคอมใน LAN แล้วติดตั้งด้วย user `aaa`:
 
 ```bash
-cd /root
+ssh aaa@192.168.10.56
+cd ~
 git clone -b cursor/accounting-payslip-cd50 \
   https://github.com/michatri/https-github.com-wc42txg5sr-sketch-seven-gift-logger.git accounting
-cd /root/accounting
+cd ~/accounting
 chmod +x scripts/install_on_server.sh
-./scripts/install_on_server.sh
+sudo ./scripts/install_on_server.sh
 ```
 
 เปิดจากเครื่องใน LAN: <http://192.168.10.56:8090/>
+
+ถ้ายังเข้าไม่ได้ รัน `./scripts/diagnose_server.sh` บนเซิร์ฟเวอร์
 
 ระบบลงเวลาใบหน้ายังอยู่ที่ <http://192.168.10.56:8080/> และ Tomcat ที่ <http://192.168.10.56:8888/> ตามเดิม
 
