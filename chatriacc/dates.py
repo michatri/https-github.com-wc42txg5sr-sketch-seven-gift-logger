@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, datetime, timedelta, timezone
 
-BANGKOK = ZoneInfo("Asia/Bangkok")
+# ไทยไม่มี DST ใช้ UTC+7 ตรงๆ ไม่พึ่ง zoneinfo (Python 3.9+)
+BANGKOK = timezone(timedelta(hours=7))
 
 THAI_MONTHS = [
     "",

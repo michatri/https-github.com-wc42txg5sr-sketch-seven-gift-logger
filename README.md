@@ -39,6 +39,8 @@ sudo ./scripts/install_on_server.sh
 
 เปิดจากเครื่องใน LAN: <http://192.168.10.65:8090/>
 
+ถ้า `chatriacc.service` ขึ้น `Failed with result 'exit-code'` ให้ `git pull` แล้วรัน `sudo ./scripts/install_on_server.sh` อีกครั้ง อย่าคัดลอกไฟล์ `.service` เข้า systemd เอง
+
 หลังติดตั้งครั้งแรก ให้เข้า **นำเข้า AC25** แล้วเลือกใช้ไฟล์ `AC25-209` ที่มากับระบบ เพื่อดึงใบสำคัญปี 2025 ของวัดนักบุญมาร์โกเข้าฐานข้อมูล
 
 ## วิธีรันบนเครื่องพัฒนา

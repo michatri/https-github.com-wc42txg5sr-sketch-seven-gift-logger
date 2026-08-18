@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # ติดตั้ง chatriACC บนเซิร์ฟเวอร์ LAN 192.168.10.65
-# ใช้ได้กับ user aaa:  ssh aaa@192.168.10.65  แล้ว  sudo ./scripts/install_on_server.sh
+# ssh aaa@192.168.10.65  แล้ว  sudo ./scripts/install_on_server.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE_NAME="chatriacc"
-UNIT_SRC="$ROOT/chatriacc/deploy/chatriacc.service"
 UNIT_DST="/etc/systemd/system/${SERVICE_NAME}.service"
 BIND_HOST="0.0.0.0"
-BIND_PORT="${CHATRIACC_PORT:-8090}"
 SERVER_IP="${CHATRIACC_SERVER_IP:-192.168.10.65}"
 APP_USER="${SUDO_USER:-${USER}}"
 
@@ -17,20 +15,23 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-if [[ "$APP_USER" == "root" && -d /home/aaa ]]; then
-  APP_USER="aaa"
+if ! id "$APP_USER" >/dev/null 2>&1; then
+  echo "==> ไม่มี user ${APP_USER} จะรันด้วย root"
+  APP_USER="root"
 fi
+APP_GROUP="$(id -gn "$APP_USER" 2>/dev/null || echo "$APP_USER")"
 
 echo "==> โฟลเดอร์แอป: $ROOT"
 echo "==> รันบริการด้วย user: $APP_USER"
-echo "==> เปิดที่ http://${SERVER_IP}:${BIND_PORT}/"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq python3 python3-venv python3-pip curl iproute2 >/dev/null
 
-if [[ ! -x "$ROOT/.venv/bin/gunicorn" ]]; then
-  echo "==> สร้าง virtualenv และติดตั้งแพ็กเกจ"
+chmod +x "$ROOT/scripts/"*.sh
+
+if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
+  echo "==> สร้าง virtualenv"
   python3 -m venv "$ROOT/.venv"
 fi
 # shellcheck disable=SC1091
@@ -38,43 +39,76 @@ source "$ROOT/.venv/bin/activate"
 pip install -q --upgrade pip
 pip install -q -r "$ROOT/requirements.txt"
 
-mkdir -p "$ROOT/data" "$ROOT/data/uploads"
-chown -R "$APP_USER:$APP_USER" "$ROOT"
+if [[ ! -x "$ROOT/.venv/bin/gunicorn" ]]; then
+  echo "ERROR: ติดตั้ง gunicorn ไม่สำเร็จ"
+  exit 1
+fi
 
-if [[ ! -f /etc/chatriacc.env ]]; then
-  SECRET="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-  cat > /etc/chatriacc.env <<EOF
+mkdir -p "$ROOT/data" "$ROOT/data/uploads"
+chown -R "$APP_USER:$APP_GROUP" "$ROOT"
+
+port_busy() {
+  local p="$1"
+  ss -lnt 2>/dev/null | awk '{print $4}' | grep -qE ":${p}$"
+}
+
+BIND_PORT="${CHATRIACC_PORT:-8090}"
+if port_busy "$BIND_PORT"; then
+  echo "==> พอร์ต ${BIND_PORT} ถูกใช้แล้ว จะใช้ 8100 แทน"
+  BIND_PORT="8100"
+fi
+if port_busy "$BIND_PORT"; then
+  echo "ERROR: พอร์ต ${BIND_PORT} ก็ถูกใช้แล้วเช่นกัน"
+  ss -lntp | grep -E ':8090|:8100|:80[[:space:]]' || true
+  exit 1
+fi
+
+echo "==> ตรวจ import ก่อนสตาร์ท systemd"
+if ! sudo -u "$APP_USER" env PYTHONPATH="$ROOT" "$ROOT/.venv/bin/python" -c "from chatriacc.wsgi import app; print(app.name)"; then
+  echo "ERROR: import chatriacc ไม่ผ่าน — ดูข้อความด้านบน"
+  exit 1
+fi
+
+ENV_FILE=/etc/chatriacc.env
+SECRET="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+if [[ -f "$ENV_FILE" ]]; then
+  grep -q '^CHATRIACC_SECRET=' "$ENV_FILE" && SECRET="$(sed -n 's/^CHATRIACC_SECRET=//p' "$ENV_FILE" | head -n1)"
+fi
+cat > "$ENV_FILE" <<EOF
 CHATRIACC_SECRET=${SECRET}
 CHATRIACC_HOST=${BIND_HOST}
 CHATRIACC_PORT=${BIND_PORT}
 CHATRIACC_DB=${ROOT}/data/chatriacc.db
 CHATRIACC_SERVER_IP=${SERVER_IP}
 EOF
-  chmod 600 /etc/chatriacc.env
-fi
+chmod 600 "$ENV_FILE"
 
-BINDS="--bind ${BIND_HOST}:${BIND_PORT}"
-OPEN_HTTP80=0
-if command -v ss >/dev/null 2>&1 && ! ss -lnt | grep -qE ':80[[:space:]]'; then
-  echo "==> พอร์ต 80 ว่าง จะเปิด http://${SERVER_IP}/ ด้วย"
-  BINDS="${BINDS} --bind ${BIND_HOST}:80"
-  OPEN_HTTP80=1
-fi
+echo "==> เขียน systemd unit ที่ path จริง: $ROOT"
+cat > "$UNIT_DST" <<EOF
+[Unit]
+Description=chatriACC church accounting
+After=network-online.target
+Wants=network-online.target
 
-echo "==> ติดตั้ง systemd: $UNIT_DST"
-TMP_UNIT="$(mktemp)"
-sed \
-  -e "s|/root/chatriacc|${ROOT}|g" \
-  -e "s|User=root|User=${APP_USER}|g" \
-  -e "s|--bind 0.0.0.0:8090|${BINDS}|g" \
-  "$UNIT_SRC" > "$TMP_UNIT"
+[Service]
+Type=simple
+User=${APP_USER}
+Group=${APP_GROUP}
+WorkingDirectory=${ROOT}
+Environment=PYTHONPATH=${ROOT}
+Environment=PYTHONUNBUFFERED=1
+Environment=CHATRIACC_DB=${ROOT}/data/chatriacc.db
+Environment=CHATRIACC_PORT=${BIND_PORT}
+EnvironmentFile=-/etc/chatriacc.env
+ExecStart=${ROOT}/scripts/chatriacc-run.sh
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+SyslogIdentifier=chatriacc
 
-if [[ "$OPEN_HTTP80" == "1" && "$APP_USER" != "root" ]]; then
-  sed -i "s|User=${APP_USER}|User=root|" "$TMP_UNIT"
-fi
-
-cp "$TMP_UNIT" "$UNIT_DST"
-rm -f "$TMP_UNIT"
+[Install]
+WantedBy=multi-user.target
+EOF
 
 open_port() {
   local port="$1"
@@ -89,9 +123,6 @@ open_port() {
 
 echo "==> เปิดไฟร์วอลล์พอร์ต ${BIND_PORT}"
 open_port "$BIND_PORT"
-if [[ "$OPEN_HTTP80" == "1" ]]; then
-  open_port 80
-fi
 if command -v ufw >/dev/null 2>&1; then
   ufw reload >/dev/null 2>&1 || true
 fi
@@ -108,7 +139,7 @@ systemctl --no-pager --full status "$SERVICE_NAME" || true
 
 echo
 echo "==> ตรวจจากเครื่องเซิร์ฟเวอร์เอง"
-ss -lntp | grep -E ":${BIND_PORT}|:80[[:space:]]" || true
+ss -lntp | grep -E ":${BIND_PORT}" || true
 if curl -fsS --max-time 5 "http://127.0.0.1:${BIND_PORT}/health"; then
   echo
   echo "chatriACC บนพอร์ต ${BIND_PORT} ทำงานแล้ว"
@@ -117,5 +148,7 @@ else
   echo
   echo "ERROR: ยังเรียก http://127.0.0.1:${BIND_PORT}/health ไม่ได้"
   journalctl -u "$SERVICE_NAME" -n 80 --no-pager || true
+  echo
+  echo "รันเพิ่ม: $ROOT/scripts/diagnose_server.sh"
   exit 1
 fi

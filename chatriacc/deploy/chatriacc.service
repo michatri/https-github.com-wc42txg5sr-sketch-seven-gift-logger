@@ -1,19 +1,23 @@
 [Unit]
-Description=chatriACC ระบบบัญชีวัด
+Description=chatriACC church accounting
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/root/chatriacc
-Environment=PYTHONPATH=/root/chatriacc
-Environment=CHATRIACC_DB=/root/chatriacc/data/chatriacc.db
+User=aaa
+Group=aaa
+WorkingDirectory=/home/aaa/chatriacc
+Environment=PYTHONPATH=/home/aaa/chatriacc
+Environment=PYTHONUNBUFFERED=1
+Environment=CHATRIACC_DB=/home/aaa/chatriacc/data/chatriacc.db
+Environment=CHATRIACC_PORT=8090
 EnvironmentFile=-/etc/chatriacc.env
-ExecStart=/root/chatriacc/.venv/bin/gunicorn --workers 2 --bind 0.0.0.0:8090 --access-logfile - chatriacc.wsgi:app
-Restart=always
+ExecStart=/home/aaa/chatriacc/scripts/chatriacc-run.sh
+Restart=on-failure
 RestartSec=3
 TimeoutStopSec=20
+SyslogIdentifier=chatriacc
 
 [Install]
 WantedBy=multi-user.target
