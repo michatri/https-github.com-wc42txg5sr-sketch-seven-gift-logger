@@ -101,22 +101,15 @@ def _append_record(record: dict) -> None:
     with jsonl_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+    try:
+        from .db import mysql_enabled
+        from . import db_store
 
-def _iter_jsonl_rows() -> list[dict]:
-    rows: list[dict] = []
-    for path in sorted(attendance_dir().glob("attendance_*.jsonl")):
-        with path.open(encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(row, dict):
-                    rows.append(row)
-    return rows
+        if mysql_enabled():
+            db_store.insert_attendance(record)
+    except Exception as exc:  # noqa: BLE001
+        # อย่าให้ลงเวลาไฟล์ล้มเพราะ DB — แต่แจ้งใน log ผ่าน print
+        print(f"[mysql] attendance write failed: {exc}")
 
 
 def list_records(
@@ -129,6 +122,40 @@ def list_records(
     room: str | None = None,
     today_only: bool = True,
 ) -> list[dict]:
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            return db_store.list_attendance(
+                direction=direction,
+                person_id=person_id,
+                academic_year=academic_year,
+                term=term,
+                grade=grade,
+                room=room,
+                today_only=today_only,
+                limit=limit,
+            )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] attendance list failed, fallback files: {exc}")
+
+    def _iter_jsonl_rows() -> list[dict]:
+        rows: list[dict] = []
+        for path in sorted(attendance_dir().glob("attendance_*.jsonl")):
+            with path.open(encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(row, dict):
+                        rows.append(row)
+        return rows
+
     if today_only:
         _, jsonl_path = _day_paths()
         source_rows: list[dict] = []

@@ -145,7 +145,17 @@ def enroll_from_image(
         "face_count_in_image": len(hits),
         **{k: profile.get(k, "") for k in PROFILE_KEYS},
     }
-    return _write_meta(person_dir, meta)
+    written = _write_meta(person_dir, meta)
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            preview_bytes = (person_dir / "preview.jpg").read_bytes()
+            db_store.upsert_student(written, embedding=emb, preview_jpeg=preview_bytes)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] student upsert failed: {exc}")
+    return written
 
 
 def enroll_from_ndarray(
@@ -183,6 +193,21 @@ def list_people(
     room: str | None = None,
     q: str | None = None,
 ) -> list[dict]:
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            return db_store.list_students(
+                academic_year=academic_year,
+                term=term,
+                grade=grade,
+                room=room,
+                q=q,
+            )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] list students failed, fallback files: {exc}")
+
     root = gallery_dir()
     people: list[dict] = []
     if not root.exists():
@@ -240,6 +265,20 @@ def profile_options() -> dict[str, list[str]]:
 
 def get_person(person_id: str) -> dict:
     person_id = validate_person_id(person_id)
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            row = db_store.get_student(person_id)
+            if row is None:
+                raise EnrollmentError("ไม่พบรายการนี้ในระบบ")
+            return row
+    except EnrollmentError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] get student failed, fallback files: {exc}")
+
     person_dir = gallery_dir() / person_id
     if not person_dir.exists() or not (person_dir / "embedding.npy").exists():
         raise EnrollmentError("ไม่พบรายการนี้ในระบบ")
@@ -288,6 +327,7 @@ def update_person(
         )
 
     person_dir = gallery_dir() / person_id
+    person_dir.mkdir(parents=True, exist_ok=True)
     meta = dict(current)
     meta["person_id"] = person_id
     meta["display_name"] = new_name
@@ -296,19 +336,60 @@ def update_person(
             meta[key] = profile_updates[key]
         else:
             meta[key] = str(current.get(key) or "")
-    return _write_meta(person_dir, meta)
+    written = _write_meta(person_dir, meta)
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            preview = None
+            preview_path = person_dir / "preview.jpg"
+            if preview_path.exists():
+                preview = preview_path.read_bytes()
+            emb = None
+            emb_path = person_dir / "embedding.npy"
+            if emb_path.exists():
+                emb = np.load(emb_path)
+            db_store.upsert_student(written, embedding=emb, preview_jpeg=preview)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] student update failed: {exc}")
+    return written
 
 
 def delete_person(person_id: str) -> None:
     person_id = validate_person_id(person_id)
     person_dir = gallery_dir() / person_id
-    if not person_dir.exists():
+    existed = person_dir.exists()
+    if existed:
+        shutil.rmtree(person_dir)
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            deleted = db_store.delete_student(person_id)
+            if not existed and not deleted:
+                raise EnrollmentError("ไม่พบรายการนี้ในระบบ")
+            return
+    except EnrollmentError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] student delete failed: {exc}")
+    if not existed:
         raise EnrollmentError("ไม่พบรายการนี้ในระบบ")
-    shutil.rmtree(person_dir)
 
 
 def load_gallery(pipeline: FacePipeline) -> dict[str, np.ndarray]:
     _ = pipeline
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            return db_store.load_embeddings()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] load embeddings failed, fallback files: {exc}")
+
     gallery: dict[str, np.ndarray] = {}
     root = gallery_dir()
     if not root.exists():

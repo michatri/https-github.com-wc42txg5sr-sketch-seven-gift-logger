@@ -98,6 +98,15 @@ def get_school_options() -> dict[str, list[str]]:
         _used_values("academic_year")
     )
     rooms = set(DEFAULT_ROOMS) | set(custom["rooms"]) | set(_used_values("room"))
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            years |= set(db_store.list_option_years())
+            rooms |= set(db_store.list_option_rooms())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] options read failed: {exc}")
     return {
         "academic_year": sorted(years, reverse=True),
         "term": list(TERMS),
@@ -119,6 +128,14 @@ def add_academic_year(year: str) -> dict[str, list[str]]:
     if year not in custom["academic_years"]:
         custom["academic_years"].append(year)
         _save_custom(custom)
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            db_store.add_option_year(year)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] add year failed: {exc}")
     return get_school_options()
 
 
@@ -132,4 +149,12 @@ def add_room(room: str) -> dict[str, list[str]]:
     if room not in custom["rooms"]:
         custom["rooms"].append(room)
         _save_custom(custom)
+    try:
+        from .db import mysql_enabled
+        from . import db_store
+
+        if mysql_enabled():
+            db_store.add_option_room(room)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[mysql] add room failed: {exc}")
     return get_school_options()

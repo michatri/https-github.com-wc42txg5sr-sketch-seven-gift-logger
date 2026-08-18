@@ -206,6 +206,16 @@ def api_get_person(person_id: str) -> JSONResponse:
 def api_preview(person_id: str) -> Response:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", person_id):
         raise HTTPException(status_code=400, detail="รหัสไม่ถูกต้อง")
+    try:
+        from face_attendance.lib.db import mysql_enabled
+        from face_attendance.lib import db_store
+
+        if mysql_enabled():
+            blob = db_store.get_preview_jpeg(person_id)
+            if blob:
+                return Response(content=blob, media_type="image/jpeg")
+    except Exception:
+        pass
     path = (
         Path(__file__).resolve().parents[1] / "data" / "gallery" / person_id / "preview.jpg"
     )
@@ -404,4 +414,14 @@ def api_attendance_snapshot_file(filename: str) -> Response:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "people": len(list_people())}
+    payload = {"ok": True, "people": len(list_people())}
+    try:
+        from face_attendance.lib.db import mysql_enabled, ping
+
+        payload["mysql_enabled"] = mysql_enabled()
+        if mysql_enabled():
+            payload["mysql"] = ping()
+    except Exception as exc:  # noqa: BLE001
+        payload["mysql_enabled"] = False
+        payload["mysql_error"] = str(exc)
+    return payload
