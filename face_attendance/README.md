@@ -100,7 +100,8 @@ http://IPของUbuntu:8080
 
 บันทึกรายวันอยู่ที่ `data/attendance/attendance_YYYYMMDD.csv`
 
-เตรียม MySQL/MariaDB ดูที่ [`MYSQL.md`](MYSQL.md)
+เตรียม MySQL/MariaDB ดูที่ [`MYSQL.md`](MYSQL.md)  
+ติดตั้ง Jakarta Tomcat ดูที่ [`TOMCAT.md`](TOMCAT.md)
 
 ถ้า firewall เปิดอยู่:
 ```bash
