@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Face Attendance{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <nav class="topnav" aria-label="เมนูหลัก">
+      <a href="/" class="nav-brand">Face Attendance</a>
+      <div class="nav-links">
+        <a href="/" class="{% if active == 'enroll' %}active{% endif %}">ลงทะเบียนใบหน้า</a>
+        <a href="/students" class="{% if active == 'students' %}active{% endif %}">ประวัตินักเรียน</a>
+        <a href="/check-in" class="{% if active == 'in' %}active{% endif %}">ลงเวลาเข้าโรงเรียน</a>
+        <a href="/check-out" class="{% if active == 'out' %}active{% endif %}">ลงเวลาออกจากโรงเรียน</a>
+      </div>
+    </nav>
+    {% block content %}{% endblock %}
+  </div>
+  {% block modals %}{% endblock %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

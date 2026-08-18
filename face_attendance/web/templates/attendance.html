@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} | Face Attendance{% endblock %}
+{% block content %}
+    <header class="hero">
+      <div class="brand">{{ page_title }}</div>
+      <p class="sub">{{ page_sub }}</p>
+    </header>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="list-head">
+          <h2>กล้อง real-time</h2>
+          <div class="count" id="scan-state">หยุดอยู่</div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn-primary" id="btn-start">เริ่มสแกน</button>
+          <button type="button" class="btn-ghost" id="btn-stop">หยุด</button>
+          <button type="button" class="btn-secondary" id="btn-once">สแกนครั้งเดียว</button>
+        </div>
+
+        <div id="scan-status" class="status" aria-live="polite"></div>
+        <p class="hint">
+          ระบบจะดึงภาพจากกล้อง DS-2CD2146G2-I แล้วจับคู่กับรายชื่อที่ลงทะเบียน
+          กันลงซ้ำภายใน cooldown ที่ตั้งใน camera.env
+        </p>
+
+        <div class="preview-box tall" id="live-box">
+          <div class="placeholder">กด “เริ่มสแกน” เพื่อลงเวลาอัตโนมัติ</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="list-head">
+          <h2>รายการวันนี้ ({{ direction_label }})</h2>
+          <div class="count"><span id="record-count">0</span> รายการ</div>
+        </div>
+        <div id="records" class="records">
+          <div class="empty">ยังไม่มีรายการ</div>
+        </div>
+      </section>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    window.ATTENDANCE_DIRECTION = {{ direction|tojson }};
+    window.ATTENDANCE_LABEL = {{ direction_label|tojson }};
+  </script>
+  <script src="/static/attendance.js"></script>
+{% endblock %}

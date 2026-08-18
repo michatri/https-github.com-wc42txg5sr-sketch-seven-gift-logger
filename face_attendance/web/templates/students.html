@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}ประวัตินักเรียน | Face Attendance{% endblock %}
+{% block content %}
+    <header class="hero">
+      <div class="brand">ประวัตินักเรียน</div>
+      <p class="sub">ค้นหาและดูข้อมูลนักเรียนตามปีการศึกษา เทอม ชั้น ห้อง พร้อมประวัติเข้า-ออก</p>
+    </header>
+
+    <section class="panel">
+      <h2>ตัวกรอง</h2>
+      <form id="filter-form" class="filter-grid">
+        <label>
+          ปีการศึกษา
+          <select id="f_year"></select>
+        </label>
+        <label>
+          เทอม
+          <select id="f_term"></select>
+        </label>
+        <label>
+          ชั้น
+          <select id="f_grade"></select>
+        </label>
+        <label>
+          ห้อง
+          <select id="f_room"></select>
+        </label>
+        <label class="span-2">
+          ค้นหาชื่อ / รหัส
+          <input id="f_q" placeholder="พิมพ์ชื่อหรือรหัสนักเรียน" />
+        </label>
+        <div class="actions span-2">
+          <button type="submit" class="btn-primary">ค้นหา</button>
+          <button type="button" class="btn-ghost" id="btn-reset">ล้างตัวกรอง</button>
+        </div>
+      </form>
+      <div id="filter-status" class="status" aria-live="polite"></div>
+    </section>
+
+    <section class="panel" style="margin-top:18px">
+      <div class="list-head">
+        <h2>รายชื่อนักเรียน</h2>
+        <div class="count"><span id="student-count">0</span> คน</div>
+      </div>
+      <div id="students" class="students-table-wrap">
+        <div class="empty">กำลังโหลด...</div>
+      </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+  <div id="history-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-history></div>
+    <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="history-title">
+      <div class="modal-head">
+        <h2 id="history-title">ประวัตินักเรียน</h2>
+        <button type="button" class="btn-ghost modal-x" data-close-history>ปิด</button>
+      </div>
+      <div id="history-profile" class="history-profile"></div>
+      <h3 class="history-sub">ประวัติเข้า-ออก</h3>
+      <div id="history-records" class="records"></div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="/static/school_fields.js"></script>
+  <script src="/static/students.js"></script>
+{% endblock %}
