@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}ถ่ายสลิปธนาคาร{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Bank payslip</p>
+    <h1>ส่งรูปสลิปธนาคาร</h1>
+    <p class="muted">ถ่ายจากกล้องมือถือหรืออัปโหลดรูปสลิปโอนเงิน ระบบจะอ่านจำนวนเงินแล้วแปลงเป็นรายรับหรือรายจ่าย</p>
+  </div>
+</section>
+
+<div class="capture-grid">
+  <form class="capture-card" method="post" action="{{ url_for('bank_slip_create') }}" enctype="multipart/form-data">
+    <h2>ถ่ายรูปจากกล้องมือถือ</h2>
+    <p>เปิดกล้องหลังของมือถือ แล้วถ่ายสลิปให้เห็นจำนวนเงินชัดๆ</p>
+    <label class="file-btn primary">
+      เปิดกล้องถ่ายสลิป
+      <input type="file" name="image" accept="image/*" capture="environment" required onchange="this.form.submit()">
+    </label>
+  </form>
+  <form class="capture-card" method="post" action="{{ url_for('bank_slip_create') }}" enctype="multipart/form-data">
+    <h2>อัปโหลดรูปจากเครื่อง</h2>
+    <p>เลือกภาพสลิปที่บันทึกไว้ในมือถือหรือคอมพิวเตอร์</p>
+    <label class="file-btn">
+      เลือกไฟล์รูปสลิป
+      <input type="file" name="image" accept="image/*" required onchange="this.form.submit()">
+    </label>
+  </form>
+</div>
+
+<section class="panel camera-panel">
+  <div class="panel-head">
+    <h2>กล้องบนหน้าเว็บ</h2>
+  </div>
+  <p class="muted">ใช้ได้เมื่อเบราว์เซอร์อนุญาตกล้อง (บางมือถือต้องใช้ปุ่มเปิดกล้องด้านบนแทน ถ้าเว็บเป็น http)</p>
+  <video id="live-camera" autoplay playsinline muted></video>
+  <canvas id="live-canvas" hidden></canvas>
+  <div class="form-actions">
+    <button type="button" class="btn primary" id="start-camera">เปิดกล้อง</button>
+    <button type="button" class="btn" id="capture-frame" disabled>ถ่ายแล้วส่งเข้าระบบ</button>
+  </div>
+  <p class="muted" id="camera-status"></p>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const video = document.getElementById("live-camera");
+  const canvas = document.getElementById("live-canvas");
+  const startBtn = document.getElementById("start-camera");
+  const captureBtn = document.getElementById("capture-frame");
+  const status = document.getElementById("camera-status");
+  let stream = null;
+
+  startBtn.addEventListener("click", async () => {
+    status.textContent = "กำลังเปิดกล้อง...";
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+      video.srcObject = stream;
+      captureBtn.disabled = false;
+      status.textContent = "กล้องพร้อมแล้ว จัดสลิปให้อยู่ในกรอบแล้วกดถ่าย";
+    } catch (err) {
+      status.textContent = "เปิดกล้องบนหน้าเว็บไม่ได้ ให้ใช้ปุ่มถ่ายรูปจากกล้องมือถือด้านบน";
+    }
+  });
+
+  captureBtn.addEventListener("click", async () => {
+    if (!stream) return;
+    canvas.width = video.videoWidth || 1080;
+    canvas.height = video.videoHeight || 1440;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    status.textContent = "กำลังส่งรูปและอ่านสลิป...";
+    canvas.toBlob(async (blob) => {
+      const data = new FormData();
+      data.append("image", blob, "camera.jpg");
+      const response = await fetch("{{ url_for('bank_slip_create') }}", {
+        method: "POST",
+        body: data,
+        headers: { "X-Requested-With": "fetch" }
+      });
+      const payload = await response.json().catch(() => null);
+      if (payload && payload.redirect) {
+        window.location = payload.redirect;
+        return;
+      }
+      status.textContent = (payload && payload.error) || "ส่งรูปไม่สำเร็จ";
+    }, "image/jpeg", 0.9);
+  });
+</script>
+{% endblock %}

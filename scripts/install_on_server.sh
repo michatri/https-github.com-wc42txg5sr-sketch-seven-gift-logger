@@ -26,7 +26,7 @@ echo "==> รันบริการด้วย user: $APP_USER"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq python3 python3-venv python3-pip curl iproute2 >/dev/null
+apt-get install -y -qq python3 python3-venv python3-pip curl iproute2 tesseract-ocr tesseract-ocr-tha >/dev/null
 
 if [[ ! -x "$ROOT/.venv/bin/gunicorn" ]]; then
   echo "==> สร้าง virtualenv และติดตั้งแพ็กเกจ"

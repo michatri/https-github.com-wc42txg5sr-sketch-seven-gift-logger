@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}ตรวจสลิปธนาคาร{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">ตรวจก่อนลงบัญชี</p>
+    <h1>แปลงสลิปเป็นรายรับ-รายจ่าย</h1>
+    <p class="muted">ตรวจจำนวนเงิน ประเภท และวันที่ แล้วกดบันทึก</p>
+  </div>
+  <form method="post" action="{{ url_for('bank_slip_delete', slip_id=slip.id) }}" onsubmit="return confirm('ลบสลิปนี้หรือไม่?');">
+    <button class="btn danger" type="submit">ลบรูป</button>
+  </form>
+</section>
+
+<div class="split">
+  <section class="panel">
+    <h2>รูปสลิป</h2>
+    <img class="slip-photo" src="{{ url_for('uploaded_file', filename=slip.image_filename) }}" alt="สลิปธนาคาร">
+    {% if slip.ocr_text %}
+      <details>
+        <summary>ข้อความที่อ่านได้จากรูป</summary>
+        <pre class="ocr-text">{{ slip.ocr_text }}</pre>
+      </details>
+    {% else %}
+      <p class="muted">{{ slip.ocr_note or 'ยังไม่มีข้อความจาก OCR' }}</p>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <h2>รายการที่จะลงบัญชี</h2>
+    <form method="post" action="{{ url_for('bank_slip_post', slip_id=slip.id) }}" class="form-grid">
+      <label>วันที่
+        <input type="date" name="txn_date" value="{{ slip.txn_date or '' }}" required>
+      </label>
+      <label>ประเภท
+        <select name="kind" id="txn-kind">
+          <option value="income" {% if slip.kind == 'income' %}selected{% endif %}>รายรับ (เงินเข้า)</option>
+          <option value="expense" {% if slip.kind != 'income' %}selected{% endif %}>รายจ่าย (เงินออก / โอนจ่าย)</option>
+        </select>
+      </label>
+      <label>จำนวนเงิน (บาท)
+        <input type="text" name="amount" class="money" value="{{ amount_baht }}" required placeholder="0.00">
+      </label>
+      <label>ธนาคาร
+        <input type="text" name="bank_name" value="{{ slip.bank_name or '' }}">
+      </label>
+      <label>เลขที่อ้างอิง
+        <input type="text" name="reference_no" value="{{ slip.reference_no or '' }}">
+      </label>
+      <label>หมวด
+        <select name="category_id" id="txn-category"
+          data-income='[{% for cat in income_categories %}{"id":{{ cat.id }},"name":{{ cat.name|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]'
+          data-expense='[{% for cat in expense_categories %}{"id":{{ cat.id }},"name":{{ cat.name|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]'>
+        </select>
+      </label>
+      <label>หมวดใหม่ (ถ้ายังไม่มี)
+        <input type="text" name="new_category">
+      </label>
+      <label>รายละเอียด
+        <input type="text" name="description" value="{{ slip.description or '' }}" required>
+      </label>
+      <div class="form-actions">
+        <button class="btn primary" type="submit">บันทึกลงรายรับ-รายจ่าย</button>
+        <a class="btn" href="{{ url_for('bank_slip_list') }}">กลับ</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const kind = document.getElementById('txn-kind');
+  const category = document.getElementById('txn-category');
+  function fillCategories() {
+    const items = JSON.parse(kind.value === 'income' ? category.dataset.income : category.dataset.expense);
+    category.innerHTML = '<option value="">ใช้หมวดโอนเงินอัตโนมัติ</option>' + items.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+  }
+  if (kind && category) {
+    fillCategories();
+    kind.addEventListener('change', fillCategories);
+  }
+</script>
+{% endblock %}

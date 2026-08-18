@@ -3,14 +3,28 @@
 from __future__ import annotations
 
 import os
+import uuid
 from calendar import monthrange
 from datetime import date, datetime
 from pathlib import Path
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import (
+    Flask,
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    url_for,
+)
 
 from accounting import db as store
 from accounting.money import MoneyError, format_baht, parse_baht
+from accounting.ocr import parse_bank_slip_text
+from accounting.ocr_engine import read_slip_image
 
 THAI_MONTHS = [
     "",
@@ -35,9 +49,14 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("ACCOUNTING_SECRET", "dev-accounting-secret"),
         DATABASE=os.environ.get("ACCOUNTING_DB", str(root / "data" / "accounting.db")),
+        UPLOAD_FOLDER=os.environ.get("ACCOUNTING_UPLOADS", str(root / "data" / "uploads")),
+        MAX_CONTENT_LENGTH=12 * 1024 * 1024,
     )
     if test_config:
         app.config.update(test_config)
+
+    Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
+    Path(app.config["DATABASE"]).parent.mkdir(parents=True, exist_ok=True)
 
     app.teardown_appcontext(store.close_db)
 
@@ -45,6 +64,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         store.init_db()
 
     app.jinja_env.filters["baht"] = format_baht
+    app.jinja_env.filters["source_label"] = _source_label
     app.jinja_env.globals["thai_months"] = THAI_MONTHS
     app.jinja_env.globals["current_year"] = date.today().year
 
@@ -134,6 +154,103 @@ def register_routes(app: Flask) -> None:
         store.delete_payslip(payslip_id)
         flash("ลบสลิปเงินเดือนแล้ว รายรับ-รายจ่ายที่ผูกกับสลิปถูกลบด้วย", "success")
         return redirect(url_for("payslip_list"))
+
+    @app.get("/bank-slips")
+    def bank_slip_list():
+        return render_template("bank_slip_list.html", slips=store.list_bank_slips())
+
+    @app.get("/bank-slips/new")
+    def bank_slip_new():
+        return render_template("bank_slip_capture.html")
+
+    @app.post("/bank-slips")
+    def bank_slip_create():
+        try:
+            filename = _save_uploaded_image()
+        except ValueError as exc:
+            flash(str(exc), "error")
+            if _wants_json():
+                return jsonify({"ok": False, "error": str(exc)}), 400
+            return redirect(url_for("bank_slip_new"))
+
+        upload_dir = Path(current_app.config["UPLOAD_FOLDER"])
+        ocr_text, ocr_note = read_slip_image(upload_dir / filename)
+        guess = parse_bank_slip_text(ocr_text)
+        slip_id = store.save_bank_slip(
+            image_filename=filename,
+            ocr_text=ocr_text,
+            ocr_note=ocr_note,
+            txn_date=guess.txn_date,
+            kind=guess.kind,
+            amount_satang=guess.amount_satang,
+            bank_name=guess.bank_name,
+            reference_no=guess.reference,
+            description=guess.description,
+        )
+        if ocr_note:
+            flash(ocr_note, "success" if ocr_text else "error")
+        for note in guess.notes:
+            flash(note, "success" if guess.amount_satang else "error")
+        review_url = url_for("bank_slip_review", slip_id=slip_id)
+        if _wants_json():
+            return jsonify({"ok": True, "redirect": review_url})
+        return redirect(review_url)
+
+    @app.get("/bank-slips/<int:slip_id>")
+    def bank_slip_review(slip_id: int):
+        slip = store.get_bank_slip(slip_id)
+        if slip is None:
+            flash("ไม่พบสลิปธนาคาร", "error")
+            return redirect(url_for("bank_slip_list"))
+        return render_template(
+            "bank_slip_review.html",
+            slip=slip,
+            income_categories=store.categories("income"),
+            expense_categories=store.categories("expense"),
+            amount_baht="" if not slip["amount_satang"] else f"{slip['amount_satang'] / 100:.2f}",
+        )
+
+    @app.post("/bank-slips/<int:slip_id>")
+    def bank_slip_post(slip_id: int):
+        try:
+            amount = parse_baht(request.form.get("amount"))
+            kind = request.form.get("kind") or "expense"
+            category_id = _category_from_form(kind) or store.default_bank_category_id(kind)
+            store.post_bank_slip(
+                slip_id=slip_id,
+                txn_date=request.form.get("txn_date") or "",
+                kind=kind,
+                amount_satang=amount,
+                bank_name=request.form.get("bank_name") or "",
+                reference_no=request.form.get("reference_no") or "",
+                description=request.form.get("description") or "",
+                category_id=category_id,
+            )
+            flash("ลงรายรับ-รายจ่ายจากสลิปธนาคารแล้ว", "success")
+            return redirect(url_for("transaction_list"))
+        except (MoneyError, ValueError) as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("bank_slip_review", slip_id=slip_id))
+
+    @app.post("/bank-slips/<int:slip_id>/delete")
+    def bank_slip_delete(slip_id: int):
+        try:
+            filename = store.delete_bank_slip(slip_id)
+            if filename:
+                path = Path(current_app.config["UPLOAD_FOLDER"]) / filename
+                path.unlink(missing_ok=True)
+            flash("ลบสลิปธนาคารแล้ว", "success")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("bank_slip_list"))
+
+    @app.get("/uploads/<path:filename>")
+    def uploaded_file(filename: str):
+        folder = Path(current_app.config["UPLOAD_FOLDER"])
+        safe = Path(filename).name
+        if not (folder / safe).is_file():
+            abort(404)
+        return send_from_directory(folder, safe)
 
     @app.get("/transactions")
     def transaction_list():
@@ -348,3 +465,39 @@ def _save_payslip_from_form(payslip_id: int | None = None):
         if payslip_id:
             return redirect(url_for("payslip_edit", payslip_id=payslip_id))
         return redirect(url_for("payslip_new"))
+
+
+SOURCE_LABELS = {
+    "payslip": "สลิปเงินเดือน",
+    "manual": "บันทึกเอง",
+    "bank_slip": "สลิปธนาคาร",
+}
+
+
+def _source_label(value: str) -> str:
+    return SOURCE_LABELS.get(value, value or "-")
+
+
+def _wants_json() -> bool:
+    return request.headers.get("X-Requested-With") == "fetch"
+
+
+def _save_uploaded_image() -> str:
+    upload = request.files.get("image")
+    if upload is None or not upload.filename:
+        raise ValueError("กรุณาถ่ายรูปหรือเลือกไฟล์สลิปธนาคาร")
+    folder = Path(current_app.config["UPLOAD_FOLDER"])
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.jpg"
+    dest = folder / filename
+    upload.save(dest)
+    try:
+        from PIL import Image, ImageOps
+
+        image = Image.open(dest)
+        image = ImageOps.exif_transpose(image)
+        image.convert("RGB").save(dest, "JPEG", quality=90)
+    except Exception as exc:  # noqa: BLE001
+        dest.unlink(missing_ok=True)
+        raise ValueError("ไฟล์นี้ไม่ใช่รูปภาพที่ใช้ได้") from exc
+    return filename

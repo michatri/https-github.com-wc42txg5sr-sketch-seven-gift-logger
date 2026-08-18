@@ -190,9 +190,51 @@ input, select, textarea {
 .flash.success { background: #e5f7f2; color: #0b5c53; }
 .flash.error { background: #fdecea; color: #8f2d28; }
 
+.capture-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.capture-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+.file-btn {
+  display: block;
+  margin-top: 16px;
+  text-align: center;
+  padding: 16px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px dashed var(--teal);
+  cursor: pointer;
+  font-weight: 700;
+}
+.file-btn.primary { background: var(--teal); color: #fff; border-style: solid; }
+.file-btn input { display: none; }
+#live-camera {
+  width: 100%;
+  max-height: 360px;
+  background: #0d2a26;
+  border-radius: 12px;
+}
+.slip-photo { width: 100%; border-radius: 12px; border: 1px solid var(--line); }
+.slip-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
+.ocr-text {
+  white-space: pre-wrap;
+  background: #f3f6f4;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
 @media (max-width: 960px) {
   .layout { grid-template-columns: 1fr; }
-  .card-grid, .card-grid.three, .split, .fields.three, .fields.four, .line-row {
+  .card-grid, .card-grid.three, .split, .fields.three, .fields.four, .line-row, .capture-grid {
     grid-template-columns: 1fr;
   }
   .content { padding: 16px; }

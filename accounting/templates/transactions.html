@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">Ledger</p>
     <h1>รายรับ-รายจ่าย</h1>
-    <p class="muted">รายการจากสลิปเงินเดือนและรายการที่บันทึกเอง</p>
+    <p class="muted">รายการจากสลิปเงินเดือน สลิปธนาคาร และรายการที่บันทึกเอง</p>
   </div>
 </section>
 
@@ -90,14 +90,14 @@
             <td>{{ row.category_name or '-' }}</td>
             <td>
               {% if row.source == 'payslip' %}
-                <a href="{{ url_for('payslip_detail', payslip_id=row.payslip_id) }}">สลิป #{{ row.payslip_id }}</a>
+                <a href="{{ url_for('payslip_detail', payslip_id=row.payslip_id) }}">สลิปเงินเดือน #{{ row.payslip_id }}</a>
               {% else %}
-                บันทึกเอง
+                {{ row.source | source_label }}
               {% endif %}
             </td>
             <td class="num {{ 'income' if row.kind == 'income' else 'expense' }}">{{ row.amount_satang | baht }}</td>
             <td>
-              {% if row.source == 'manual' %}
+              {% if row.source in ['manual', 'bank_slip'] %}
                 <form method="post" action="{{ url_for('transaction_delete', txn_id=row.id) }}" onsubmit="return confirm('ลบรายการนี้หรือไม่?');">
                   <button class="link-btn" type="submit">ลบ</button>
                 </form>

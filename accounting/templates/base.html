@@ -21,6 +21,8 @@
       </a>
       <nav>
         <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">แดชบอร์ด</a>
+        <a href="{{ url_for('bank_slip_new') }}" class="{{ 'active' if request.endpoint in ['bank_slip_new', 'bank_slip_create', 'bank_slip_review'] else '' }}">ถ่ายสลิปธนาคาร</a>
+        <a href="{{ url_for('bank_slip_list') }}" class="{{ 'active' if request.endpoint == 'bank_slip_list' else '' }}">สลิปธนาคาร</a>
         <a href="{{ url_for('payslip_new') }}" class="{{ 'active' if request.endpoint in ['payslip_new', 'payslip_create'] else '' }}">บันทึกสลิปเงินเดือน</a>
         <a href="{{ url_for('payslip_list') }}" class="{{ 'active' if request.endpoint in ['payslip_list', 'payslip_detail', 'payslip_edit'] else '' }}">สลิปทั้งหมด</a>
         <a href="{{ url_for('transaction_list') }}" class="{{ 'active' if request.endpoint == 'transaction_list' else '' }}">รายรับ-รายจ่าย</a>

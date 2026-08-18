@@ -48,14 +48,31 @@ CREATE TABLE IF NOT EXISTS transactions (
     category_id INTEGER REFERENCES categories(id),
     description TEXT NOT NULL,
     amount_satang INTEGER NOT NULL CHECK (amount_satang > 0),
-    source TEXT NOT NULL CHECK (source IN ('payslip', 'manual')),
+    source TEXT NOT NULL CHECK (source IN ('payslip', 'manual', 'bank_slip')),
     payslip_id INTEGER REFERENCES payslips(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bank_slips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    image_filename TEXT NOT NULL,
+    ocr_text TEXT,
+    ocr_note TEXT,
+    txn_date TEXT,
+    kind TEXT CHECK (kind IN ('income', 'expense')),
+    amount_satang INTEGER,
+    bank_name TEXT,
+    reference_no TEXT,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'posted')),
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(txn_date);
 CREATE INDEX IF NOT EXISTS idx_transactions_kind ON transactions(kind);
 CREATE INDEX IF NOT EXISTS idx_payslips_pay_date ON payslips(pay_date);
+CREATE INDEX IF NOT EXISTS idx_bank_slips_created ON bank_slips(created_at);
 """
 
 DEFAULT_CATEGORIES = [
@@ -76,6 +93,10 @@ DEFAULT_CATEGORIES = [
     ("ค่าเช่า", "expense", 0),
     ("ค่าสาธารณูปโภค", "expense", 0),
     ("ค่าใช้จ่ายอื่น", "expense", 0),
+    ("โอนเงินเข้า", "income", 0),
+    ("สลิปธนาคารรับ", "income", 0),
+    ("โอนเงินออก", "expense", 0),
+    ("สลิปธนาคารจ่าย", "expense", 0),
 ]
 
 
@@ -103,6 +124,7 @@ def close_db(_error: BaseException | None = None) -> None:
 def init_db(conn: sqlite3.Connection | None = None) -> None:
     db = conn or get_db()
     db.executescript(SCHEMA)
+    _migrate_transaction_source(db)
     existing = {
         (row["name"], row["kind"])
         for row in db.execute("SELECT name, kind FROM categories")
@@ -114,6 +136,37 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
                 (name, kind, is_payslip),
             )
     db.commit()
+
+
+def _migrate_transaction_source(db: sqlite3.Connection) -> None:
+    row = db.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='transactions'"
+    ).fetchone()
+    sql = row["sql"] if row else ""
+    if sql and "bank_slip" in sql:
+        return
+    db.execute("PRAGMA foreign_keys = OFF")
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS transactions_migrated (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            txn_date TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK (kind IN ('income', 'expense')),
+            category_id INTEGER REFERENCES categories(id),
+            description TEXT NOT NULL,
+            amount_satang INTEGER NOT NULL CHECK (amount_satang > 0),
+            source TEXT NOT NULL CHECK (source IN ('payslip', 'manual', 'bank_slip')),
+            payslip_id INTEGER REFERENCES payslips(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    db.execute("INSERT INTO transactions_migrated SELECT * FROM transactions")
+    db.execute("DROP TABLE transactions")
+    db.execute("ALTER TABLE transactions_migrated RENAME TO transactions")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(txn_date)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_kind ON transactions(kind)")
+    db.execute("PRAGMA foreign_keys = ON")
 
 
 def categories(kind: str | None = None, payslip_only: bool = False) -> list[sqlite3.Row]:
@@ -308,9 +361,12 @@ def save_manual_transaction(
     description: str,
     amount_satang: int,
     txn_id: int | None = None,
+    source: str = "manual",
 ) -> int:
     if kind not in ("income", "expense"):
         raise ValueError("ประเภทต้องเป็นรายรับหรือรายจ่าย")
+    if source not in ("manual", "bank_slip"):
+        raise ValueError("แหล่งที่มาไม่ถูกต้อง")
     if amount_satang <= 0:
         raise ValueError("จำนวนเงินต้องมากกว่า 0")
     if not txn_date:
@@ -327,8 +383,8 @@ def save_manual_transaction(
         ).fetchone()
         if row is None:
             raise ValueError("ไม่พบรายการ")
-        if row["source"] != "manual":
-            raise ValueError("รายการจากสลิปต้องแก้ไขที่หน้าสลิปเงินเดือน")
+        if row["source"] not in ("manual", "bank_slip"):
+            raise ValueError("รายการจากสลิปเงินเดือนต้องแก้ไขที่หน้าสลิปเงินเดือน")
         db.execute(
             """
             UPDATE transactions
@@ -345,9 +401,9 @@ def save_manual_transaction(
         INSERT INTO transactions (
             txn_date, kind, category_id, description, amount_satang,
             source, payslip_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, 'manual', NULL, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
         """,
-        (txn_date, kind, category_id, desc, amount_satang, now),
+        (txn_date, kind, category_id, desc, amount_satang, source, now),
     )
     db.commit()
     return int(cur.lastrowid)
@@ -358,8 +414,9 @@ def delete_transaction(txn_id: int) -> None:
     row = db.execute("SELECT source FROM transactions WHERE id = ?", (txn_id,)).fetchone()
     if row is None:
         raise ValueError("ไม่พบรายการ")
-    if row["source"] != "manual":
-        raise ValueError("รายการจากสลิปต้องลบที่หน้าสลิปเงินเดือน")
+    if row["source"] not in ("manual", "bank_slip"):
+        raise ValueError("รายการจากสลิปเงินเดือนต้องลบที่หน้าสลิปเงินเดือน")
+    db.execute("UPDATE bank_slips SET transaction_id = NULL, status = 'draft' WHERE transaction_id = ?", (txn_id,))
     db.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
     db.commit()
 
@@ -530,3 +587,118 @@ def available_years() -> list[int]:
     ).fetchall()
     years = [int(row["year"]) for row in rows if row["year"] is not None]
     return years
+
+
+def default_bank_category_id(kind: str) -> int | None:
+    name = "โอนเงินเข้า" if kind == "income" else "โอนเงินออก"
+    row = get_db().execute(
+        "SELECT id FROM categories WHERE name = ? AND kind = ?", (name, kind)
+    ).fetchone()
+    return int(row["id"]) if row else None
+
+
+def save_bank_slip(
+    *,
+    image_filename: str,
+    ocr_text: str,
+    ocr_note: str,
+    txn_date: str | None,
+    kind: str,
+    amount_satang: int | None,
+    bank_name: str,
+    reference_no: str,
+    description: str,
+) -> int:
+    db = get_db()
+    cur = db.execute(
+        """
+        INSERT INTO bank_slips (
+            image_filename, ocr_text, ocr_note, txn_date, kind, amount_satang,
+            bank_name, reference_no, description, status, transaction_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NULL, ?)
+        """,
+        (
+            image_filename,
+            ocr_text,
+            ocr_note,
+            txn_date,
+            kind if kind in ("income", "expense") else "expense",
+            amount_satang,
+            bank_name or None,
+            reference_no or None,
+            description,
+            utcnow_iso(),
+        ),
+    )
+    db.commit()
+    return int(cur.lastrowid)
+
+
+def get_bank_slip(slip_id: int) -> dict[str, Any] | None:
+    row = get_db().execute("SELECT * FROM bank_slips WHERE id = ?", (slip_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def list_bank_slips() -> list[dict[str, Any]]:
+    rows = get_db().execute(
+        "SELECT * FROM bank_slips ORDER BY id DESC"
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def post_bank_slip(
+    *,
+    slip_id: int,
+    txn_date: str,
+    kind: str,
+    amount_satang: int,
+    bank_name: str,
+    reference_no: str,
+    description: str,
+    category_id: int | None,
+) -> int:
+    slip = get_bank_slip(slip_id)
+    if slip is None:
+        raise ValueError("ไม่พบสลิปธนาคาร")
+    txn_id = save_manual_transaction(
+        txn_date=txn_date,
+        kind=kind,
+        category_id=category_id,
+        description=description,
+        amount_satang=amount_satang,
+        txn_id=slip["transaction_id"],
+        source="bank_slip",
+    )
+    db = get_db()
+    db.execute(
+        """
+        UPDATE bank_slips
+        SET txn_date = ?, kind = ?, amount_satang = ?, bank_name = ?,
+            reference_no = ?, description = ?, status = 'posted', transaction_id = ?
+        WHERE id = ?
+        """,
+        (
+            txn_date,
+            kind,
+            amount_satang,
+            bank_name or None,
+            reference_no or None,
+            description,
+            txn_id,
+            slip_id,
+        ),
+    )
+    db.commit()
+    return txn_id
+
+
+def delete_bank_slip(slip_id: int) -> str | None:
+    slip = get_bank_slip(slip_id)
+    if slip is None:
+        raise ValueError("ไม่พบสลิปธนาคาร")
+    db = get_db()
+    if slip["transaction_id"]:
+        db.execute("DELETE FROM transactions WHERE id = ?", (slip["transaction_id"],))
+    db.execute("DELETE FROM bank_slips WHERE id = ?", (slip_id,))
+    db.commit()
+    return slip["image_filename"]

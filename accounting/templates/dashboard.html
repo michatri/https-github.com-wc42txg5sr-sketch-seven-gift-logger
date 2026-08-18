@@ -5,9 +5,12 @@
   <div>
     <p class="eyebrow">ภาพรวมบัญชี</p>
     <h1>รายรับ-รายจ่ายจากสลิปเงินเดือน</h1>
-    <p class="muted">บันทึกสลิปแล้วระบบจะลงรายรับ (เงินได้) และรายจ่าย (รายการหัก) ให้อัตโนมัติ</p>
+    <p class="muted">บันทึกจากสลิปเงินเดือน หรือถ่ายรูปสลิปธนาคารแล้วแปลงเป็นรายรับ-รายจ่าย</p>
   </div>
-  <a class="btn primary" href="{{ url_for('payslip_new') }}">+ บันทึกสลิปใหม่</a>
+  <div class="actions">
+    <a class="btn primary" href="{{ url_for('bank_slip_new') }}">ถ่าย/ส่งสลิปธนาคาร</a>
+    <a class="btn" href="{{ url_for('payslip_new') }}">+ บันทึกสลิปเงินเดือน</a>
+  </div>
 </section>
 
 <div class="card-grid">
@@ -100,7 +103,7 @@
             <td>{{ 'รายรับ' if row.kind == 'income' else 'รายจ่าย' }}</td>
             <td>{{ row.description }}</td>
             <td>{{ row.category_name or '-' }}</td>
-            <td>{{ 'สลิปเงินเดือน' if row.source == 'payslip' else 'บันทึกเอง' }}</td>
+            <td>{{ row.source | source_label }}</td>
             <td class="num {{ 'income' if row.kind == 'income' else 'expense' }}">{{ row.amount_satang | baht }}</td>
           </tr>
         {% endfor %}
