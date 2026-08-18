@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}ประมาณการ · {{ app_name }}{% endblock %}
+{% block heading %}ประมาณการ ปี {{ year }}/{{ buddhist_year(year) }}{% endblock %}
+{% block sub %}พิจารณาต้น พ.ย. - ส่งปลาย พ.ย. ของทุกปี{% endblock %}
+{% block content %}
+<form method="post">
+  <input type="hidden" name="year" value="{{ year }}">
+  <section class="split">
+    <article class="card">
+      <h2>รายรับ</h2>
+      <table>
+        {% for row in income %}
+        <tr>
+          <td>{{ row.account_code }} {{ row.name }}</td>
+          <td><input name="acc_{{ row.account_code }}" class="num" value="{{ format_baht(row.amount_satang).replace(',', '') }}"></td>
+        </tr>
+        {% endfor %}
+        <tr><th>รวมรับ</th><th class="num">{{ format_baht(income_total) }}</th></tr>
+      </table>
+    </article>
+    <article class="card">
+      <h2>รายจ่าย</h2>
+      <table>
+        {% for row in expense %}
+        <tr>
+          <td>{{ row.account_code }} {{ row.name }}</td>
+          <td><input name="acc_{{ row.account_code }}" class="num" value="{{ format_baht(row.amount_satang).replace(',', '') }}"></td>
+        </tr>
+        {% endfor %}
+        <tr><th>รวมจ่าย</th><th class="num">{{ format_baht(expense_total) }}</th></tr>
+      </table>
+    </article>
+  </section>
+  <section class="card">
+    <h2>งาน / โครงการ 1-20</h2>
+    <table>
+      <thead><tr><th>#</th><th>ชื่องาน</th><th>ช่วงเดือน</th><th>งบประมาณ</th></tr></thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><input name="proj_name_{{ loop.index }}" value="{{ p.name }}"></td>
+          <td><input name="proj_period_{{ loop.index }}" value="{{ p.period }}"></td>
+          <td><input name="proj_amount_{{ loop.index }}" class="num" value="{{ format_baht(p.amount_satang).replace(',', '') }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <button class="btn primary" type="submit">บันทึกประมาณการ</button>
+</form>
+{% endblock %}

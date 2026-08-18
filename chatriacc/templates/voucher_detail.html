@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set v = data.voucher %}
+{% set title_th = 'ใบสำคัญรับ' if v.kind == 'rv' else 'ใบสำคัญจ่าย' %}
+{% block title %}{{ voucher_label(v.kind, v.number) }} · {{ app_name }}{% endblock %}
+{% block heading %}{{ title_th }} {{ voucher_label(v.kind, v.number) }}{% endblock %}
+{% block actions %}
+  <div class="btn-row">
+    <a class="btn" href="{{ url_for('voucher_print', voucher_id=v.id) }}" target="_blank">พิมพ์</a>
+    {% if not v.cancelled %}
+    <form method="post" action="{{ url_for('voucher_cancel', voucher_id=v.id) }}" onsubmit="return confirm('ต้องการยกเลิก {{ voucher_label(v.kind, v.number) }} (เรียกคืนไม่ได้)')">
+      <button class="btn danger" type="submit">ยกเลิกใบสำคัญ</button>
+    </form>
+    {% endif %}
+  </div>
+{% endblock %}
+{% block content %}
+<section class="card">
+  {% if v.cancelled %}<p class="flash err">ใบสำคัญนี้ถูกยกเลิกแล้ว{% if v.cancelled_at %} เมื่อ {{ thai_date(v.cancelled_at) }}{% endif %}</p>{% endif %}
+  <p>{{ church_name }} · {{ settings.diocese }}</p>
+  <p>ผู้ลงบัญชี {{ v.officer }} · เจ้าอาวาส {{ v.reviewer }}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>ลำดับ</th>
+        <th>วันที่</th>
+        <th>รายการ</th>
+        <th>เช็ค/โอน</th>
+        <th class="num">จำนวนเงิน</th>
+        <th>รหัส</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in data.lines %}
+      <tr>
+        <td>{{ line.line_no }}</td>
+        <td>{{ thai_date(line.txn_date, True) }}</td>
+        <td>{{ line.detail }}</td>
+        <td>{{ '✓' if line.bank_flag else '' }}</td>
+        <td class="num">{{ format_baht(line.amount_satang) }}</td>
+        <td>{{ line.account_code }} {{ line.account_name or '' }}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <th colspan="4">รวม{{ 'รับ' if v.kind == 'rv' else 'จ่าย' }} ( {{ baht_text(data.total) }} )</th>
+        <th class="num">{{ format_baht(data.total) }}</th>
+        <th>บาท</th>
+      </tr>
+    </tbody>
+  </table>
+  {% if data.transfers %}
+  <h3>เช็ค / โอน</h3>
+  <table>
+    <thead><tr><th>ลำดับ</th><th>เลขที่</th><th>ลงวันที่</th><th>จาก / ถึง</th><th class="num">จำนวน</th></tr></thead>
+    <tbody>
+      {% for tr in data.transfers %}
+      <tr>
+        <td>{{ tr.seq }}</td>
+        <td>{{ tr.number }}</td>
+        <td>{{ thai_date(tr.transfer_date, True) }}</td>
+        <td>{{ tr.party }}</td>
+        <td class="num">{{ format_baht(tr.amount_satang) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+{% endblock %}

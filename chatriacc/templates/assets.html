@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}ครุภัณฑ์ · {{ app_name }}{% endblock %}
+{% block heading %}ครุภัณฑ์ ปี {{ year_label }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>ลงรายการ</h2>
+  <form method="post" class="form-grid">
+    <label>ประเภท
+      <select name="direction">
+        <option value="in">ครุภัณฑ์ใหม่</option>
+        <option value="out">จำหน่าย</option>
+      </select>
+    </label>
+    <label>วันที่ <input type="date" name="txn_date" value="{{ today }}" required></label>
+    <label>รายการ <input name="description" required></label>
+    <label>จำนวน <input name="qty" inputmode="numeric"></label>
+    <label>ราคา <input name="amount" class="num" inputmode="decimal"></label>
+    <label>สถานที่เก็บ / รหัส <input name="location" placeholder="สถานที่"><input name="code" placeholder="เช่น 25-209-01"></label>
+    <label>สาเหตุจำหน่าย <input name="reason"></label>
+    <button class="btn primary" type="submit">บันทึก</button>
+  </form>
+</section>
+<section class="split">
+  <article class="card">
+    <h2>ครุภัณฑ์ใหม่ · {{ format_baht(in_total) }}</h2>
+    <table>
+      <thead><tr><th>วันที่</th><th>รายการ</th><th class="num">ราคา</th><th>รหัส</th><th></th></tr></thead>
+      <tbody>
+        {% for row in incoming %}
+        <tr>
+          <td>{{ thai_date(row.txn_date, True) }}</td>
+          <td>{{ row.description }}{% if row.qty %} ×{{ row.qty }}{% endif %}</td>
+          <td class="num">{{ format_baht(row.amount_satang) }}</td>
+          <td>{{ row.code }}</td>
+          <td>
+            <form method="post" action="{{ url_for('asset_delete', asset_id=row.id) }}" onsubmit="return confirm('ลบรายการนี้?')">
+              <button class="linkish" type="submit">ลบ</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">ยังไม่มีรายการ</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+  <article class="card">
+    <h2>ครุภัณฑ์จำหน่าย · {{ format_baht(out_total) }}</h2>
+    <table>
+      <thead><tr><th>วันที่</th><th>รายการ</th><th class="num">ราคา</th><th>สาเหตุ</th><th></th></tr></thead>
+      <tbody>
+        {% for row in outgoing %}
+        <tr>
+          <td>{{ thai_date(row.txn_date, True) }}</td>
+          <td>{{ row.description }}</td>
+          <td class="num">{{ format_baht(row.amount_satang) }}</td>
+          <td>{{ row.reason }}</td>
+          <td>
+            <form method="post" action="{{ url_for('asset_delete', asset_id=row.id) }}" onsubmit="return confirm('ลบรายการนี้?')">
+              <button class="linkish" type="submit">ลบ</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">ยังไม่มีรายการ</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+</section>
+{% endblock %}

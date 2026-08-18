@@ -1,0 +1,19 @@
+[Unit]
+Description=chatriACC ระบบบัญชีวัด
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/chatriacc
+Environment=PYTHONPATH=/root/chatriacc
+Environment=CHATRIACC_DB=/root/chatriacc/data/chatriacc.db
+EnvironmentFile=-/etc/chatriacc.env
+ExecStart=/root/chatriacc/.venv/bin/gunicorn --workers 2 --bind 0.0.0.0:8090 --access-logfile - chatriacc.wsgi:app
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}ฐานะการเงิน · {{ app_name }}{% endblock %}
+{% block heading %}สรุปฐานะการเงิน ณ สิ้นปี {{ year_label }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>1. เงินสด (ณ สิ้นเดือน)</h2>
+  <table>
+    {% for row in sheet.cash %}
+    <tr><td>{{ loop.index }}) เงินสด</td><td>{{ row.name }}</td><td class="num">{{ format_baht(row.amount_satang) }}</td></tr>
+    {% endfor %}
+    <tr><th colspan="2">รวมเงินสด</th><th class="num">{{ format_baht(sheet.cash_total) }}</th></tr>
+  </table>
+</section>
+<section class="card">
+  <h2>2. เงินฝาก (UpBook ณ สิ้นเดือน)</h2>
+  <p class="muted">ผู้มีสิทธิ์เบิกจ่าย เป็น 1 ใน 2 คน</p>
+  <table>
+    {% for row in sheet.banks %}
+    <tr>
+      <td>{{ loop.index }}) เงินฝาก</td>
+      <td>{{ row.bank_name }}<br>เลขบัญชี {{ row.account_no }}{% if row.branch %}<br>สาขา {{ row.branch }}{% endif %}</td>
+      <td class="num">{{ format_baht(row.amount_satang) }}</td>
+    </tr>
+    {% endfor %}
+    <tr><th colspan="2">รวมเงินฝาก</th><th class="num">{{ format_baht(sheet.bank_total) }}</th></tr>
+  </table>
+</section>
+<section class="card">
+  <p class="total">รวมฐานะการเงิน {{ format_baht(sheet.cash_total + sheet.bank_total) }}</p>
+</section>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}นำเข้า AC25 · {{ app_name }}{% endblock %}
+{% block heading %}นำเข้าโปรแกรมบัญชีวัด AC25{% endblock %}
+{% block sub %}อ่านชีท DATA / ครุภัณฑ์ / ประมาณการ จากไฟล์ .xlsb{% endblock %}
+{% block content %}
+<section class="card">
+  <p>ไฟล์ต้นทางคือโปรแกรมบัญชีวัด <code>AC25-209.xlsb</code> ของอัครสังฆมณฑลกรุงเทพฯ ระบบจะดึงใบสำคัญรับ (CRV) ใบสำคัญจ่าย (CPV) ครุภัณฑ์ และประมาณการ มาไว้ใน {{ app_name }}</p>
+  <p>ฐานข้อมูลตอนนี้มี {{ voucher_count }} ใบสำคัญ</p>
+  <form method="post" enctype="multipart/form-data">
+    <label>เลือกไฟล์ .xlsb
+      <input type="file" name="file" accept=".xlsb">
+    </label>
+    {% if has_seed %}
+    <label class="check">
+      <input type="checkbox" name="use_seed" value="1" {% if voucher_count == 0 %}checked{% endif %}>
+      ใช้ไฟล์ AC25-209 ที่มากับระบบ (วัดนักบุญมาร์โก ปี 2025)
+    </label>
+    {% endif %}
+    <p class="hint">การนำเข้าจะแทนที่ใบสำคัญของปีเดียวกันในระบบ</p>
+    <button class="btn primary" type="submit">นำเข้า</button>
+  </form>
+  {% if result %}
+  <p>รับ {{ result.rv }} ใบ · จ่าย {{ result.pv }} ใบ · บันทึกสำเร็จ {{ result.created }} · ข้าม {{ result.skipped }} · ปี {{ result.years|join(', ') }}</p>
+  {% endif %}
+</section>
+{% endblock %}
