@@ -1,4 +1,4 @@
-"""Payslip-based income and expense accounting."""
+"""Income and expense accounting from money-transfer slips."""
 
 from accounting.app import create_app
 

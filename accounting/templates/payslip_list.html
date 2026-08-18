@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}สลิปเงินเดือนทั้งหมด{% endblock %}
+{% block title %}สลิปโอนเงินทั้งหมด{% endblock %}
 {% block content %}
 <section class="page-head">
   <div>
-    <p class="eyebrow">Payslip</p>
-    <h1>สลิปเงินเดือนทั้งหมด</h1>
-    <p class="muted">แต่ละสลิปจะถูกแปลงเป็นรายรับ (เงินได้) และรายจ่าย (รายการหัก) ตามวันที่จ่าย</p>
+    <p class="eyebrow">สลิปโอนเงิน</p>
+    <h1>สลิปโอนเงินทั้งหมด</h1>
+    <p class="muted">แต่ละสลิปโอนเงินจะถูกแปลงเป็นรายรับและรายจ่ายตามวันที่ทำรายการ</p>
   </div>
   <a class="btn primary" href="{{ url_for('payslip_new') }}">+ บันทึกสลิปใหม่</a>
 </section>
@@ -44,7 +44,7 @@
       </tbody>
     </table>
   {% else %}
-    <p class="empty">ยังไม่มีสลิป เริ่มจากหน้าบันทึกสลิปเงินเดือน</p>
+    <p class="empty">ยังไม่มีสลิป เริ่มจากหน้าบันทึกสลิปโอนเงิน</p>
   {% endif %}
 </section>
 {% endblock %}

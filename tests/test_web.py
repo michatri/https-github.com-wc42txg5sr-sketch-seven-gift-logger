@@ -1,7 +1,7 @@
 def test_dashboard_ok(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "รายรับ-รายจ่าย".encode("utf-8") in response.data
+    assert "รายรับ-รายจ่ายจากสลิปโอนเงิน".encode("utf-8") in response.data
 
 
 def test_health(client):

@@ -43,13 +43,13 @@ def test_upload_bank_slip_creates_ledger(client, monkeypatch):
             "amount": "750.00",
             "bank_name": "กสิกรไทย",
             "reference_no": "ABC",
-            "description": "สลิปธนาคาร กสิกรไทย",
+            "description": "สลิปโอนเงิน กสิกรไทย",
             "category_id": "",
         },
         follow_redirects=True,
     )
     assert posted.status_code == 200
-    assert "สลิปธนาคาร".encode("utf-8") in posted.data
+    assert "สลิปโอนเงิน".encode("utf-8") in posted.data
     assert "฿750.00".encode("utf-8") in posted.data
 
 

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ 'แก้ไขสลิปเงินเดือน' if slip else 'บันทึกสลิปเงินเดือน' }}{% endblock %}
+{% block title %}{{ 'แก้ไขสลิปโอนเงิน' if slip else 'บันทึกสลิปโอนเงิน' }}{% endblock %}
 {% block content %}
 <section class="page-head">
   <div>
-    <p class="eyebrow">เข้าข้อมูลจาก Payslip</p>
-    <h1>{{ 'แก้ไขสลิปเงินเดือน' if slip else 'บันทึกสลิปเงินเดือน' }}</h1>
+    <p class="eyebrow">เข้าข้อมูลจากสลิปโอนเงิน</p>
+    <h1>{{ 'แก้ไขสลิปโอนเงิน' if slip else 'บันทึกสลิปโอนเงิน' }}</h1>
     <p class="muted">กรอกรายได้ด้านซ้าย และรายการหักด้านขวา ระบบจะลงบัญชีรายรับ-รายจ่ายให้อัตโนมัติ</p>
   </div>
 </section>

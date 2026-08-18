@@ -275,7 +275,7 @@ def save_payslip(
     if payslip_id:
         existing = db.execute("SELECT id FROM payslips WHERE id = ?", (payslip_id,)).fetchone()
         if existing is None:
-            raise ValueError("ไม่พบสลิปเงินเดือน")
+            raise ValueError("ไม่พบสลิปโอนเงิน")
         db.execute("DELETE FROM transactions WHERE payslip_id = ?", (payslip_id,))
         db.execute("DELETE FROM payslip_lines WHERE payslip_id = ?", (payslip_id,))
         db.execute(
@@ -384,7 +384,7 @@ def save_manual_transaction(
         if row is None:
             raise ValueError("ไม่พบรายการ")
         if row["source"] not in ("manual", "bank_slip"):
-            raise ValueError("รายการจากสลิปเงินเดือนต้องแก้ไขที่หน้าสลิปเงินเดือน")
+            raise ValueError("รายการจากสลิปโอนเงินต้องแก้ไขที่หน้าสลิปโอนเงิน")
         db.execute(
             """
             UPDATE transactions
@@ -415,7 +415,7 @@ def delete_transaction(txn_id: int) -> None:
     if row is None:
         raise ValueError("ไม่พบรายการ")
     if row["source"] not in ("manual", "bank_slip"):
-        raise ValueError("รายการจากสลิปเงินเดือนต้องลบที่หน้าสลิปเงินเดือน")
+        raise ValueError("รายการจากสลิปโอนเงินต้องลบที่หน้าสลิปโอนเงิน")
     db.execute("UPDATE bank_slips SET transaction_id = NULL, status = 'draft' WHERE transaction_id = ?", (txn_id,))
     db.execute("DELETE FROM transactions WHERE id = ?", (txn_id,))
     db.commit()

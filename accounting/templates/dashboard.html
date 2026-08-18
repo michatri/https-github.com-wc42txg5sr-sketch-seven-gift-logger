@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}แดชบอร์ด · ระบบบัญชีสลิปเงินเดือน{% endblock %}
+{% block title %}แดชบอร์ด · ระบบบัญชีสลิปโอนเงิน{% endblock %}
 {% block content %}
 <section class="page-head">
   <div>
     <p class="eyebrow">ภาพรวมบัญชี</p>
-    <h1>รายรับ-รายจ่ายจากสลิปเงินเดือน</h1>
-    <p class="muted">บันทึกจากสลิปเงินเดือน หรือถ่ายรูปสลิปธนาคารแล้วแปลงเป็นรายรับ-รายจ่าย</p>
+    <h1>รายรับ-รายจ่ายจากสลิปโอนเงิน</h1>
+    <p class="muted">ถ่ายรูปหรือบันทึกสลิปโอนเงิน แล้วแปลงเป็นรายรับ-รายจ่าย</p>
   </div>
   <div class="actions">
-    <a class="btn primary" href="{{ url_for('bank_slip_new') }}">ถ่าย/ส่งสลิปธนาคาร</a>
-    <a class="btn" href="{{ url_for('payslip_new') }}">+ บันทึกสลิปเงินเดือน</a>
+    <a class="btn primary" href="{{ url_for('bank_slip_new') }}">ถ่าย/ส่งสลิปโอนเงิน</a>
+    <a class="btn" href="{{ url_for('payslip_new') }}">+ บันทึกสลิปโอนเงิน</a>
   </div>
 </section>
 
@@ -51,7 +51,7 @@
         data-income='[{% for row in monthly %}{{ row.income / 100 }}{% if not loop.last %},{% endif %}{% endfor %}]'
         data-expense='[{% for row in monthly %}{{ row.expense / 100 }}{% if not loop.last %},{% endif %}{% endfor %}]'></canvas>
     {% else %}
-      <p class="empty">ยังไม่มีข้อมูลปีนี้ เริ่มจากบันทึกสลิปเงินเดือน</p>
+      <p class="empty">ยังไม่มีข้อมูลปีนี้ เริ่มจากบันทึกสลิปโอนเงิน</p>
     {% endif %}
   </section>
   <section class="panel">
@@ -110,7 +110,7 @@
       </tbody>
     </table>
   {% else %}
-    <p class="empty">ยังไม่มีรายการ ลองบันทึกสลิปเงินเดือนหรือลงรายรับ-รายจ่ายด้วยตนเอง</p>
+    <p class="empty">ยังไม่มีรายการ ลองบันทึกสลิปโอนเงินหรือลงรายรับ-รายจ่ายด้วยตนเอง</p>
   {% endif %}
 </section>
 {% endblock %}

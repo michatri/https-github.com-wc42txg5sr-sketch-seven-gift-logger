@@ -1,5 +1,5 @@
 [Unit]
-Description=Payslip accounting web (รายรับ-รายจ่าย)
+Description=Accounting web (รายรับ-รายจ่ายจากสลิปโอนเงิน)
 After=network-online.target
 Wants=network-online.target
 

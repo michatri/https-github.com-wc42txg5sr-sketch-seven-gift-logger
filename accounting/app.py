@@ -121,7 +121,7 @@ def register_routes(app: Flask) -> None:
     def payslip_detail(payslip_id: int):
         slip = store.fetch_payslip(payslip_id)
         if slip is None:
-            flash("ไม่พบสลิปเงินเดือน", "error")
+            flash("ไม่พบสลิปโอนเงิน", "error")
             return redirect(url_for("payslip_list"))
         return render_template("payslip_detail.html", slip=slip)
 
@@ -129,7 +129,7 @@ def register_routes(app: Flask) -> None:
     def payslip_edit(payslip_id: int):
         slip = store.fetch_payslip(payslip_id)
         if slip is None:
-            flash("ไม่พบสลิปเงินเดือน", "error")
+            flash("ไม่พบสลิปโอนเงิน", "error")
             return redirect(url_for("payslip_list"))
         return render_template(
             "payslip_form.html",
@@ -152,7 +152,7 @@ def register_routes(app: Flask) -> None:
     @app.post("/payslips/<int:payslip_id>/delete")
     def payslip_delete(payslip_id: int):
         store.delete_payslip(payslip_id)
-        flash("ลบสลิปเงินเดือนแล้ว รายรับ-รายจ่ายที่ผูกกับสลิปถูกลบด้วย", "success")
+        flash("ลบสลิปโอนเงินแล้ว รายรับ-รายจ่ายที่ผูกกับสลิปถูกลบด้วย", "success")
         return redirect(url_for("payslip_list"))
 
     @app.get("/bank-slips")
@@ -458,7 +458,7 @@ def _save_payslip_from_form(payslip_id: int | None = None):
             expense_lines=expense_lines,
             payslip_id=payslip_id,
         )
-        flash("บันทึกสลิปเงินเดือน และลงรายรับ-รายจ่ายแล้ว", "success")
+        flash("บันทึกสลิปโอนเงิน และลงรายรับ-รายจ่ายแล้ว", "success")
         return redirect(url_for("payslip_detail", payslip_id=slip_id))
     except (MoneyError, ValueError) as exc:
         flash(str(exc), "error")
@@ -468,9 +468,9 @@ def _save_payslip_from_form(payslip_id: int | None = None):
 
 
 SOURCE_LABELS = {
-    "payslip": "สลิปเงินเดือน",
+    "payslip": "สลิปโอนเงิน",
     "manual": "บันทึกเอง",
-    "bank_slip": "สลิปธนาคาร",
+    "bank_slip": "สลิปโอนเงิน",
 }
 
 
