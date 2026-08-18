@@ -23,21 +23,21 @@
           <div class="field-row">
             <label>
               ปีการศึกษา
-              <input id="academic_year" name="academic_year" type="text" placeholder="เช่น 2568" />
+              <select id="academic_year" name="academic_year"></select>
             </label>
             <label>
               เทอม
-              <input id="term" name="term" type="text" placeholder="เช่น 1" />
+              <select id="term" name="term"></select>
             </label>
           </div>
           <div class="field-row">
             <label>
               ชั้น
-              <input id="grade" name="grade" type="text" placeholder="เช่น ม.1" />
+              <select id="grade" name="grade"></select>
             </label>
             <label>
               ห้อง
-              <input id="room" name="room" type="text" placeholder="เช่น 1" />
+              <select id="room" name="room"></select>
             </label>
           </div>
           <label>
@@ -96,21 +96,21 @@
         <div class="field-row">
           <label>
             ปีการศึกษา
-            <input id="edit_academic_year" name="academic_year" type="text" placeholder="เช่น 2568" />
+            <select id="edit_academic_year" name="academic_year"></select>
           </label>
           <label>
             เทอม
-            <input id="edit_term" name="term" type="text" placeholder="เช่น 1" />
+            <select id="edit_term" name="term"></select>
           </label>
         </div>
         <div class="field-row">
           <label>
             ชั้น
-            <input id="edit_grade" name="grade" type="text" placeholder="เช่น ม.1" />
+            <select id="edit_grade" name="grade"></select>
           </label>
           <label>
             ห้อง
-            <input id="edit_room" name="room" type="text" placeholder="เช่น 1" />
+            <select id="edit_room" name="room"></select>
           </label>
         </div>
         <label>
@@ -132,5 +132,6 @@
 {% endblock %}
 
 {% block scripts %}
+  <script src="/static/school_fields.js"></script>
   <script src="/static/app.js"></script>
 {% endblock %}

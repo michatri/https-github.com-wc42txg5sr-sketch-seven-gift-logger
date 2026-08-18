@@ -18,6 +18,8 @@ if (!form || !peopleEl) {
 }
 
 function bootEnrollPage() {
+let schoolOptions = null;
+
 function setStatus(message, ok = true) {
   statusEl.textContent = message || "";
   statusEl.className = "status " + (ok ? "ok" : "err");
@@ -39,6 +41,18 @@ function escapeHtml(text) {
 function closeMenus(except = null) {
   peopleEl.querySelectorAll(".menu.open").forEach((menu) => {
     if (menu !== except) menu.classList.remove("open");
+  });
+}
+
+async function ensureSchoolOptions() {
+  schoolOptions = await SchoolFields.loadOptions();
+  await SchoolFields.fillProfileSelects("", schoolOptions);
+  SchoolFields.bindAddHandlers("", (opts) => {
+    schoolOptions = opts;
+  });
+  await SchoolFields.fillProfileSelects("edit_", schoolOptions);
+  SchoolFields.bindAddHandlers("edit_", (opts) => {
+    schoolOptions = opts;
   });
 }
 
@@ -85,17 +99,19 @@ function profileFormData(extra = {}) {
   return body;
 }
 
-function openEditModal(person) {
+async function openEditModal(person) {
   editPersonId.value = person.person_id;
   editDisplayName.value = person.display_name || person.person_id;
-  document.getElementById("edit_academic_year").value = person.academic_year || "";
-  document.getElementById("edit_term").value = person.term || "";
-  document.getElementById("edit_grade").value = person.grade || "";
-  document.getElementById("edit_room").value = person.room || "";
   editImage.value = "";
   editPreviewImg.src = person.preview_url
     ? `${person.preview_url}?t=${Date.now()}`
     : "";
+  await SchoolFields.fillProfileSelects("edit_", schoolOptions, {
+    academic_year: person.academic_year || "",
+    term: person.term || "",
+    grade: person.grade || "",
+    room: person.room || "",
+  });
   setEditStatus("");
   editModal.classList.remove("hidden");
   editModal.setAttribute("aria-hidden", "false");
@@ -128,7 +144,7 @@ peopleEl.addEventListener("click", async (event) => {
       setStatus(data.error || "โหลดข้อมูลไม่สำเร็จ", false);
       return;
     }
-    openEditModal(data.person);
+    await openEditModal(data.person);
     return;
   }
 
@@ -283,4 +299,5 @@ async function refreshCameraPreview() {
 document.getElementById("btn-preview").addEventListener("click", refreshCameraPreview);
 
 loadPeople().catch((err) => setStatus(String(err), false));
+ensureSchoolOptions().catch((err) => setStatus(String(err), false));
 }

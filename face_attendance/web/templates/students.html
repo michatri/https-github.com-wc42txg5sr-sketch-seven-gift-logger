@@ -11,19 +11,19 @@
       <form id="filter-form" class="filter-grid">
         <label>
           ปีการศึกษา
-          <input id="f_year" list="opt_year" placeholder="เช่น 2568" />
+          <select id="f_year"></select>
         </label>
         <label>
           เทอม
-          <input id="f_term" list="opt_term" placeholder="เช่น 1" />
+          <select id="f_term"></select>
         </label>
         <label>
           ชั้น
-          <input id="f_grade" list="opt_grade" placeholder="เช่น ม.1" />
+          <select id="f_grade"></select>
         </label>
         <label>
           ห้อง
-          <input id="f_room" list="opt_room" placeholder="เช่น 1" />
+          <select id="f_room"></select>
         </label>
         <label class="span-2">
           ค้นหาชื่อ / รหัส
@@ -34,10 +34,6 @@
           <button type="button" class="btn-ghost" id="btn-reset">ล้างตัวกรอง</button>
         </div>
       </form>
-      <datalist id="opt_year"></datalist>
-      <datalist id="opt_term"></datalist>
-      <datalist id="opt_grade"></datalist>
-      <datalist id="opt_room"></datalist>
       <div id="filter-status" class="status" aria-live="polite"></div>
     </section>
 
@@ -68,5 +64,6 @@
 {% endblock %}
 
 {% block scripts %}
+  <script src="/static/school_fields.js"></script>
   <script src="/static/students.js"></script>
 {% endblock %}

@@ -6,6 +6,8 @@ const historyModal = document.getElementById("history-modal");
 const historyProfile = document.getElementById("history-profile");
 const historyRecords = document.getElementById("history-records");
 
+let schoolOptions = null;
+
 function setStatus(message, ok = true) {
   filterStatus.textContent = message || "";
   filterStatus.className = "status " + (ok ? "ok" : "err");
@@ -19,11 +21,65 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;");
 }
 
-function fillDatalist(id, values) {
-  const el = document.getElementById(id);
-  el.innerHTML = (values || [])
-    .map((v) => `<option value="${escapeHtml(v)}"></option>`)
-    .join("");
+async function loadFilterOptions() {
+  schoolOptions = await SchoolFields.loadOptions();
+  SchoolFields.fillSelect(document.getElementById("f_year"), schoolOptions.academic_year, {
+    emptyLabel: "ทุกปีการศึกษา",
+    addValue: SchoolFields.ADD_YEAR,
+    addLabel: "+ เพิ่มปีการศึกษา",
+  });
+  SchoolFields.fillSelect(document.getElementById("f_term"), schoolOptions.term, {
+    emptyLabel: "ทุกเทอม",
+  });
+  SchoolFields.fillSelect(document.getElementById("f_grade"), schoolOptions.grade, {
+    emptyLabel: "ทุกชั้น",
+  });
+  SchoolFields.fillSelect(document.getElementById("f_room"), schoolOptions.room, {
+    emptyLabel: "ทุกห้อง",
+    addValue: SchoolFields.ADD_ROOM,
+    addLabel: "+ เพิ่มห้อง",
+  });
+
+  const yearEl = document.getElementById("f_year");
+  const roomEl = document.getElementById("f_room");
+  yearEl.onchange = async () => {
+    if (yearEl.value !== SchoolFields.ADD_YEAR) return;
+    const value = prompt("เพิ่มปีการศึกษา (พ.ศ. 4 หลัก เช่น 2569)");
+    yearEl.value = "";
+    if (!value) return;
+    const res = await fetch("/api/school-options/academic-year", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      alert(data.error || "เพิ่มปีการศึกษาไม่สำเร็จ");
+      return;
+    }
+    schoolOptions = data.options;
+    await loadFilterOptions();
+    yearEl.value = value.trim();
+  };
+  roomEl.onchange = async () => {
+    if (roomEl.value !== SchoolFields.ADD_ROOM) return;
+    const value = prompt("เพิ่มห้อง เช่น 1 หรือ ห้องพิเศษ");
+    roomEl.value = "";
+    if (!value) return;
+    const res = await fetch("/api/school-options/room", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      alert(data.error || "เพิ่มห้องไม่สำเร็จ");
+      return;
+    }
+    schoolOptions = data.options;
+    await loadFilterOptions();
+    roomEl.value = value.trim();
+  };
 }
 
 function filtersQuery() {
@@ -39,16 +95,6 @@ function filtersQuery() {
   if (room) params.set("room", room);
   if (q) params.set("q", q);
   return params;
-}
-
-async function loadOptions() {
-  const res = await fetch("/api/students/options");
-  const data = await res.json();
-  if (!data.ok) return;
-  fillDatalist("opt_year", data.options.academic_year);
-  fillDatalist("opt_term", data.options.term);
-  fillDatalist("opt_grade", data.options.grade);
-  fillDatalist("opt_room", data.options.room);
 }
 
 async function loadStudents() {
@@ -163,7 +209,8 @@ filterForm.addEventListener("submit", async (event) => {
 });
 
 document.getElementById("btn-reset").addEventListener("click", async () => {
-  filterForm.reset();
+  document.getElementById("f_q").value = "";
+  await loadFilterOptions();
   await loadStudents();
 });
 
@@ -183,4 +230,4 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-Promise.all([loadOptions(), loadStudents()]).catch((err) => setStatus(String(err), false));
+Promise.all([loadFilterOptions(), loadStudents()]).catch((err) => setStatus(String(err), false));

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -33,8 +33,12 @@ from face_attendance.lib.gallery import (
     enroll_from_ndarray,
     get_person,
     list_people,
-    profile_options,
     update_person,
+)
+from face_attendance.lib.school_options import (
+    add_academic_year,
+    add_room,
+    get_school_options,
 )
 
 WEB_DIR = Path(__file__).resolve().parent
@@ -134,7 +138,30 @@ def api_students(
 
 @app.get("/api/students/options")
 def api_student_options() -> dict:
-    return {"ok": True, "options": profile_options()}
+    return {"ok": True, "options": get_school_options()}
+
+
+@app.get("/api/school-options")
+def api_school_options() -> dict:
+    return {"ok": True, "options": get_school_options()}
+
+
+@app.post("/api/school-options/academic-year")
+def api_add_academic_year(payload: dict = Body(...)) -> JSONResponse:
+    try:
+        options = add_academic_year(str(payload.get("value") or ""))
+        return JSONResponse({"ok": True, "options": options})
+    except EnrollmentError as exc:
+        return _json_error(exc)
+
+
+@app.post("/api/school-options/room")
+def api_add_room(payload: dict = Body(...)) -> JSONResponse:
+    try:
+        options = add_room(str(payload.get("value") or ""))
+        return JSONResponse({"ok": True, "options": options})
+    except EnrollmentError as exc:
+        return _json_error(exc)
 
 
 @app.get("/api/students/{person_id}/history")
