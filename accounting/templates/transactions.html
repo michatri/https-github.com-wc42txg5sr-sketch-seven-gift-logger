@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}รายรับ-รายจ่าย{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Ledger</p>
+    <h1>รายรับ-รายจ่าย</h1>
+    <p class="muted">รายการจากสลิปโอนเงินและรายการที่บันทึกเอง</p>
+  </div>
+</section>
+
+<section class="panel">
+  <form class="filters" method="get">
+    <label>จากวันที่
+      <input type="date" name="start" value="{{ start }}">
+    </label>
+    <label>ถึงวันที่
+      <input type="date" name="end" value="{{ end }}">
+    </label>
+    <label>ประเภท
+      <select name="kind">
+        <option value="" {% if not kind %}selected{% endif %}>ทั้งหมด</option>
+        <option value="income" {% if kind == 'income' %}selected{% endif %}>รายรับ</option>
+        <option value="expense" {% if kind == 'expense' %}selected{% endif %}>รายจ่าย</option>
+      </select>
+    </label>
+    <button class="btn" type="submit">กรอง</button>
+    <a class="btn ghost" href="{{ url_for('transaction_list') }}">ล้าง</a>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>บันทึกรายการเพิ่ม (นอกสลิป)</h2>
+  <form method="post" class="fields four" action="{{ url_for('transaction_create') }}">
+    <label>วันที่
+      <input type="date" name="txn_date" value="{{ form_date }}" required>
+    </label>
+    <label>ประเภท
+      <select name="kind" id="txn-kind">
+        <option value="income">รายรับ</option>
+        <option value="expense" selected>รายจ่าย</option>
+      </select>
+    </label>
+    <label>หมวด
+      <select name="category_id" id="txn-category"
+        data-income='[{% for cat in income_categories %}{"id":{{ cat.id }},"name":{{ cat.name|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]'
+        data-expense='[{% for cat in expense_categories %}{"id":{{ cat.id }},"name":{{ cat.name|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]'>
+      </select>
+    </label>
+    <label>หมวดใหม่ (ถ้ายังไม่มี)
+      <input type="text" name="new_category" placeholder="เช่น ค่าเน็ต">
+    </label>
+    <label>รายละเอียด
+      <input type="text" name="description" required>
+    </label>
+    <label>จำนวนเงิน
+      <input type="text" name="amount" class="money" placeholder="0.00" required>
+    </label>
+    <div class="form-actions">
+      <button class="btn primary" type="submit">บันทึก</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="summary-inline">
+    <span class="income">รายรับ {{ total.income | baht }}</span>
+    <span class="expense">รายจ่าย {{ total.expense | baht }}</span>
+    <span class="{{ 'pos' if total.net >= 0 else 'neg' }}">สุทธิ {{ total.net | baht }}</span>
+  </div>
+  {% if rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>วันที่</th>
+          <th>ประเภท</th>
+          <th>รายละเอียด</th>
+          <th>หมวด</th>
+          <th>แหล่งที่มา</th>
+          <th class="num">จำนวน</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.txn_date }}</td>
+            <td>{{ 'รายรับ' if row.kind == 'income' else 'รายจ่าย' }}</td>
+            <td>{{ row.description }}</td>
+            <td>{{ row.category_name or '-' }}</td>
+            <td>
+              {% if row.source == 'payslip' %}
+                <a href="{{ url_for('payslip_detail', payslip_id=row.payslip_id) }}">สลิปโอนเงิน #{{ row.payslip_id }}</a>
+              {% else %}
+                {{ row.source | source_label }}
+              {% endif %}
+            </td>
+            <td class="num {{ 'income' if row.kind == 'income' else 'expense' }}">{{ row.amount_satang | baht }}</td>
+            <td>
+              {% if row.source in ['manual', 'bank_slip'] %}
+                <form method="post" action="{{ url_for('transaction_delete', txn_id=row.id) }}" onsubmit="return confirm('ลบรายการนี้หรือไม่?');">
+                  <button class="link-btn" type="submit">ลบ</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">ไม่พบรายการในช่วงที่เลือก</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const kind = document.getElementById('txn-kind');
+  const category = document.getElementById('txn-category');
+  function fillCategories() {
+    const items = JSON.parse(kind.value === 'income' ? category.dataset.income : category.dataset.expense);
+    category.innerHTML = '<option value="">ไม่ระบุ</option>' + items.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+  }
+  if (kind && category) {
+    fillCategories();
+    kind.addEventListener('change', fillCategories);
+  }
+</script>
+{% endblock %}

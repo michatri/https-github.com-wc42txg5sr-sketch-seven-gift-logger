@@ -1,0 +1,19 @@
+[Unit]
+Description=Accounting web (รายรับ-รายจ่ายจากสลิปโอนเงิน)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/accounting
+Environment=PYTHONPATH=/root/accounting
+Environment=ACCOUNTING_DB=/root/accounting/data/accounting.db
+EnvironmentFile=-/etc/accounting.env
+ExecStart=/root/accounting/.venv/bin/gunicorn --workers 2 --bind 0.0.0.0:8090 --access-logfile - accounting.wsgi:app
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

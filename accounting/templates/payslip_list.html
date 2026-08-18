@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}สลิปโอนเงินทั้งหมด{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">สลิปโอนเงิน</p>
+    <h1>สลิปโอนเงินทั้งหมด</h1>
+    <p class="muted">แต่ละสลิปโอนเงินจะถูกแปลงเป็นรายรับและรายจ่ายตามวันที่ทำรายการ</p>
+  </div>
+  <a class="btn primary" href="{{ url_for('payslip_new') }}">+ บันทึกสลิปใหม่</a>
+</section>
+
+<section class="panel">
+  {% if payslips %}
+    <table>
+      <thead>
+        <tr>
+          <th>วันที่จ่าย</th>
+          <th>รอบเดือน</th>
+          <th>พนักงาน</th>
+          <th>บริษัท</th>
+          <th class="num">รายรับ</th>
+          <th class="num">รายจ่าย</th>
+          <th class="num">เงินสุทธิ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for slip in payslips %}
+          <tr>
+            <td>{{ slip.pay_date }}</td>
+            <td>{{ thai_months[slip.period_month] }} {{ slip.period_year }}</td>
+            <td>{{ slip.employee_name }}</td>
+            <td>{{ slip.company_name or '-' }}</td>
+            <td class="num income">{{ slip.income_total | baht }}</td>
+            <td class="num expense">{{ slip.expense_total | baht }}</td>
+            <td class="num {{ 'pos' if slip.net >= 0 else 'neg' }}">{{ slip.net | baht }}</td>
+            <td class="actions">
+              <a href="{{ url_for('payslip_detail', payslip_id=slip.id) }}">ดู</a>
+              <a href="{{ url_for('payslip_edit', payslip_id=slip.id) }}">แก้ไข</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">ยังไม่มีสลิป เริ่มจากหน้าบันทึกสลิปโอนเงิน</p>
+  {% endif %}
+</section>
+{% endblock %}

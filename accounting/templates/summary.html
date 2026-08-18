@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">สรุปบัญชี</p>
+    <h1>{{ title }}</h1>
+    <p class="muted">{{ period_label }}</p>
+  </div>
+</section>
+
+{% if mode != 'yearly' %}
+  <section class="panel">
+    <form class="filters" method="get">
+      <label>ปี
+        <select name="year">
+          {% for y in years %}
+            <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if mode == 'daily' %}
+        <label>เดือน
+          <select name="month">
+            {% for i in range(1, 13) %}
+              <option value="{{ i }}" {% if month == i %}selected{% endif %}>{{ thai_months[i] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
+      <button class="btn" type="submit">แสดง</button>
+    </form>
+  </section>
+{% endif %}
+
+<div class="card-grid three">
+  <article class="stat-card">
+    <h2>รายรับ</h2>
+    <p class="net pos">{{ total.income | baht }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>รายจ่าย</h2>
+    <p class="net neg">{{ total.expense | baht }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>สุทธิ</h2>
+    <p class="net {{ 'pos' if total.net >= 0 else 'neg' }}">{{ total.net | baht }}</p>
+  </article>
+</div>
+
+<section class="panel">
+  {% if chart_rows %}
+    <canvas id="summaryChart" height="110"
+      data-labels='[{% for row in chart_rows %}{{ (row.label or row.period)|tojson }}{% if not loop.last %},{% endif %}{% endfor %}]'
+      data-income='[{% for row in chart_rows %}{{ row.income / 100 }}{% if not loop.last %},{% endif %}{% endfor %}]'
+      data-expense='[{% for row in chart_rows %}{{ row.expense / 100 }}{% if not loop.last %},{% endif %}{% endfor %}]'></canvas>
+  {% endif %}
+</section>
+
+<section class="panel">
+  {% if rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>{{ 'วันที่' if mode == 'daily' else ('เดือน' if mode == 'monthly' else 'ปี') }}</th>
+          <th class="num">รายรับ</th>
+          <th class="num">รายจ่าย</th>
+          <th class="num">สุทธิ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.label or row.period }}</td>
+            <td class="num income">{{ row.income | baht }}</td>
+            <td class="num expense">{{ row.expense | baht }}</td>
+            <td class="num {{ 'pos' if row.net >= 0 else 'neg' }}">{{ row.net | baht }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th>รวม</th>
+          <th class="num income">{{ total.income | baht }}</th>
+          <th class="num expense">{{ total.expense | baht }}</th>
+          <th class="num">{{ total.net | baht }}</th>
+        </tr>
+      </tfoot>
+    </table>
+  {% else %}
+    <p class="empty">ยังไม่มีข้อมูลในช่วงนี้</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const canvas = document.getElementById('summaryChart');
+  if (canvas && window.Chart) {
+    new Chart(canvas, {
+      type: '{{ "bar" if mode != "daily" else "line" }}',
+      data: {
+        labels: JSON.parse(canvas.dataset.labels),
+        datasets: [
+          { label: 'รายรับ', data: JSON.parse(canvas.dataset.income), borderColor: '#0f9d8e', backgroundColor: '#0f9d8e88' },
+          { label: 'รายจ่าย', data: JSON.parse(canvas.dataset.expense), borderColor: '#d4534a', backgroundColor: '#d4534a88' }
+        ]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+  }
+</script>
+{% endblock %}

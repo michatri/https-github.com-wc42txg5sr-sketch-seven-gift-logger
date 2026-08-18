@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}สลิป · {{ slip.employee_name }}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">สลิปโอนเงิน #{{ slip.id }}</p>
+    <h1>{{ slip.employee_name }}</h1>
+    <p class="muted">รอบ {{ thai_months[slip.period_month] }} {{ slip.period_year }} · จ่ายวันที่ {{ slip.pay_date }}</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('payslip_edit', payslip_id=slip.id) }}">แก้ไข</a>
+    <form method="post" action="{{ url_for('payslip_delete', payslip_id=slip.id) }}" onsubmit="return confirm('ลบสลิปนี้และรายการบัญชีที่ผูกอยู่หรือไม่?');">
+      <button class="btn danger" type="submit">ลบ</button>
+    </form>
+  </div>
+</section>
+
+<div class="card-grid three">
+  <article class="stat-card">
+    <h2>รายรับ</h2>
+    <p class="net pos">{{ slip.income_total | baht }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>รายจ่าย (รายการหัก)</h2>
+    <p class="net neg">{{ slip.expense_total | baht }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>เงินสุทธิ</h2>
+    <p class="net {{ 'pos' if slip.net >= 0 else 'neg' }}">{{ slip.net | baht }}</p>
+  </article>
+</div>
+
+<div class="split">
+  <section class="panel">
+    <h2>รายรับ</h2>
+    <table>
+      <thead><tr><th>หมวด</th><th>รายละเอียด</th><th class="num">จำนวน</th></tr></thead>
+      <tbody>
+        {% for line in slip.income_lines %}
+          <tr>
+            <td>{{ line.category_name or '-' }}</td>
+            <td>{{ line.description }}</td>
+            <td class="num income">{{ line.amount_satang | baht }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="panel">
+    <h2>รายจ่าย / รายการหัก</h2>
+    <table>
+      <thead><tr><th>หมวด</th><th>รายละเอียด</th><th class="num">จำนวน</th></tr></thead>
+      <tbody>
+        {% for line in slip.expense_lines %}
+          <tr>
+            <td>{{ line.category_name or '-' }}</td>
+            <td>{{ line.description }}</td>
+            <td class="num expense">{{ line.amount_satang | baht }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="empty">ไม่มีรายการหัก</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+{% if slip.company_name or slip.employee_id or slip.notes %}
+  <section class="panel">
+    <p><strong>รหัสพนักงาน:</strong> {{ slip.employee_id or '-' }}</p>
+    <p><strong>บริษัท:</strong> {{ slip.company_name or '-' }}</p>
+    <p><strong>หมายเหตุ:</strong> {{ slip.notes or '-' }}</p>
+  </section>
+{% endif %}
+{% endblock %}

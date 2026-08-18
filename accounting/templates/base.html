@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ระบบบัญชีสลิปโอนเงิน{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="brand" href="{{ url_for('dashboard') }}">
+        <span class="brand-mark">฿</span>
+        <span>
+          <strong>บัญชีสลิป</strong>
+          <small>รายรับ-รายจ่าย</small>
+        </span>
+      </a>
+      <nav>
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">แดชบอร์ด</a>
+        <a href="{{ url_for('bank_slip_new') }}" class="{{ 'active' if request.endpoint in ['bank_slip_new', 'bank_slip_create', 'bank_slip_review'] else '' }}">ถ่ายสลิปโอนเงิน</a>
+        <a href="{{ url_for('bank_slip_list') }}" class="{{ 'active' if request.endpoint == 'bank_slip_list' else '' }}">สลิปจากรูป</a>
+        <a href="{{ url_for('payslip_new') }}" class="{{ 'active' if request.endpoint in ['payslip_new', 'payslip_create'] else '' }}">บันทึกสลิปโอนเงิน</a>
+        <a href="{{ url_for('payslip_list') }}" class="{{ 'active' if request.endpoint in ['payslip_list', 'payslip_detail', 'payslip_edit'] else '' }}">สลิปทั้งหมด</a>
+        <a href="{{ url_for('transaction_list') }}" class="{{ 'active' if request.endpoint == 'transaction_list' else '' }}">รายรับ-รายจ่าย</a>
+        <a href="{{ url_for('summary_daily') }}" class="{{ 'active' if request.endpoint == 'summary_daily' else '' }}">สรุปรายวัน</a>
+        <a href="{{ url_for('summary_monthly') }}" class="{{ 'active' if request.endpoint == 'summary_monthly' else '' }}">สรุปรายเดือน</a>
+        <a href="{{ url_for('summary_yearly') }}" class="{{ 'active' if request.endpoint == 'summary_yearly' else '' }}">สรุปรายปี</a>
+      </nav>
+    </aside>
+    <main class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-stack">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

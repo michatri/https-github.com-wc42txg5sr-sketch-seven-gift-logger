@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}สลิปธนาคาร{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Bank slips</p>
+    <h1>สลิปธนาคารที่ส่งเข้ามา</h1>
+    <p class="muted">รูปที่ถ่ายหรืออัปโหลด จะถูกแปลงเป็นรายรับ-รายจ่ายเมื่อกดบันทึก</p>
+  </div>
+  <a class="btn primary" href="{{ url_for('bank_slip_new') }}">ถ่าย/ส่งสลิปใหม่</a>
+</section>
+
+<section class="panel">
+  {% if slips %}
+    <table>
+      <thead>
+        <tr>
+          <th>รูป</th>
+          <th>วันที่</th>
+          <th>ธนาคาร</th>
+          <th>ประเภท</th>
+          <th class="num">จำนวน</th>
+          <th>สถานะ</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for slip in slips %}
+          <tr>
+            <td>
+              <a href="{{ url_for('bank_slip_review', slip_id=slip.id) }}">
+                <img class="slip-thumb" src="{{ url_for('uploaded_file', filename=slip.image_filename) }}" alt="">
+              </a>
+            </td>
+            <td>{{ slip.txn_date or '-' }}</td>
+            <td>{{ slip.bank_name or '-' }}</td>
+            <td>{{ 'รายรับ' if slip.kind == 'income' else 'รายจ่าย' }}</td>
+            <td class="num {{ 'income' if slip.kind == 'income' else 'expense' }}">
+              {{ slip.amount_satang | baht if slip.amount_satang else '-' }}
+            </td>
+            <td>{{ 'ลงบัญชีแล้ว' if slip.status == 'posted' else 'รอตรวจ' }}</td>
+            <td><a href="{{ url_for('bank_slip_review', slip_id=slip.id) }}">เปิด</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">ยังไม่มีสลิปธนาคาร เริ่มจากถ่ายรูปหรืออัปโหลด</p>
+  {% endif %}
+</section>
+{% endblock %}

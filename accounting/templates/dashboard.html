@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}แดชบอร์ด · ระบบบัญชีสลิปโอนเงิน{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">ภาพรวมบัญชี</p>
+    <h1>รายรับ-รายจ่ายจากสลิปโอนเงิน</h1>
+    <p class="muted">ถ่ายรูปหรือบันทึกสลิปโอนเงิน แล้วแปลงเป็นรายรับ-รายจ่าย</p>
+  </div>
+  <div class="actions">
+    <a class="btn primary" href="{{ url_for('bank_slip_new') }}">ถ่าย/ส่งสลิปโอนเงิน</a>
+    <a class="btn" href="{{ url_for('payslip_new') }}">+ บันทึกสลิปโอนเงิน</a>
+  </div>
+</section>
+
+<div class="card-grid">
+  <article class="stat-card">
+    <h2>วันนี้</h2>
+    <p class="label income">รายรับ {{ cards.today.income | baht }}</p>
+    <p class="label expense">รายจ่าย {{ cards.today.expense | baht }}</p>
+    <p class="net {{ 'pos' if cards.today.net >= 0 else 'neg' }}">สุทธิ {{ cards.today.net | baht }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>เดือนนี้</h2>
+    <p class="label income">รายรับ {{ cards.month.income | baht }}</p>
+    <p class="label expense">รายจ่าย {{ cards.month.expense | baht }}</p>
+    <p class="net {{ 'pos' if cards.month.net >= 0 else 'neg' }}">สุทธิ {{ cards.month.net | baht }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>ปีนี้</h2>
+    <p class="label income">รายรับ {{ cards.year.income | baht }}</p>
+    <p class="label expense">รายจ่าย {{ cards.year.expense | baht }}</p>
+    <p class="net {{ 'pos' if cards.year.net >= 0 else 'neg' }}">สุทธิ {{ cards.year.net | baht }}</p>
+  </article>
+  <article class="stat-card">
+    <h2>ทั้งหมด</h2>
+    <p class="label income">รายรับ {{ cards.all.income | baht }}</p>
+    <p class="label expense">รายจ่าย {{ cards.all.expense | baht }}</p>
+    <p class="net {{ 'pos' if cards.all.net >= 0 else 'neg' }}">สุทธิ {{ cards.all.net | baht }}</p>
+  </article>
+</div>
+
+<div class="split">
+  <section class="panel">
+    <div class="panel-head">
+      <h2>กราฟรายเดือนปี {{ current_year }}</h2>
+    </div>
+    {% if monthly %}
+      <canvas id="monthChart" height="120"
+        data-labels='[{% for row in monthly %}"{{ thai_months[row.period[-2:]|int] }}"{% if not loop.last %},{% endif %}{% endfor %}]'
+        data-income='[{% for row in monthly %}{{ row.income / 100 }}{% if not loop.last %},{% endif %}{% endfor %}]'
+        data-expense='[{% for row in monthly %}{{ row.expense / 100 }}{% if not loop.last %},{% endif %}{% endfor %}]'></canvas>
+    {% else %}
+      <p class="empty">ยังไม่มีข้อมูลปีนี้ เริ่มจากบันทึกสลิปโอนเงิน</p>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <div class="panel-head">
+      <h2>หมวดหมู่ปีนี้</h2>
+    </div>
+    {% if breakdown %}
+      <table>
+        <thead>
+          <tr><th>ประเภท</th><th>หมวด</th><th class="num">จำนวน</th></tr>
+        </thead>
+        <tbody>
+          {% for row in breakdown %}
+            <tr>
+              <td>{{ 'รายรับ' if row.kind == 'income' else 'รายจ่าย' }}</td>
+              <td>{{ row.category_name }}</td>
+              <td class="num {{ 'income' if row.kind == 'income' else 'expense' }}">{{ row.amount | baht }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">ยังไม่มีหมวดหมู่ให้สรุป</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>รายการล่าสุด</h2>
+    <a href="{{ url_for('transaction_list') }}">ดูทั้งหมด</a>
+  </div>
+  {% if recent %}
+    <table>
+      <thead>
+        <tr>
+          <th>วันที่</th>
+          <th>ประเภท</th>
+          <th>รายละเอียด</th>
+          <th>หมวด</th>
+          <th>แหล่งที่มา</th>
+          <th class="num">จำนวน</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in recent %}
+          <tr>
+            <td>{{ row.txn_date }}</td>
+            <td>{{ 'รายรับ' if row.kind == 'income' else 'รายจ่าย' }}</td>
+            <td>{{ row.description }}</td>
+            <td>{{ row.category_name or '-' }}</td>
+            <td>{{ row.source | source_label }}</td>
+            <td class="num {{ 'income' if row.kind == 'income' else 'expense' }}">{{ row.amount_satang | baht }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">ยังไม่มีรายการ ลองบันทึกสลิปโอนเงินหรือลงรายรับ-รายจ่ายด้วยตนเอง</p>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  const canvas = document.getElementById('monthChart');
+  if (canvas && window.Chart) {
+    const labels = JSON.parse(canvas.dataset.labels);
+    const income = JSON.parse(canvas.dataset.income);
+    const expense = JSON.parse(canvas.dataset.expense);
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'รายรับ', data: income, backgroundColor: '#0f9d8e' },
+          { label: 'รายจ่าย', data: expense, backgroundColor: '#d4534a' }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { font: { family: 'Sarabun' } } } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+</script>
+{% endblock %}
