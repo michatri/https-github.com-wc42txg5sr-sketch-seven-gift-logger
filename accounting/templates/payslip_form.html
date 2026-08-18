@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ 'แก้ไขสลิปเงินเดือน' if slip else 'บันทึกสลิปเงินเดือน' }}{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">เข้าข้อมูลจาก Payslip</p>
+    <h1>{{ 'แก้ไขสลิปเงินเดือน' if slip else 'บันทึกสลิปเงินเดือน' }}</h1>
+    <p class="muted">กรอกรายได้ด้านซ้าย และรายการหักด้านขวา ระบบจะลงบัญชีรายรับ-รายจ่ายให้อัตโนมัติ</p>
+  </div>
+</section>
+
+<form method="post" action="{{ url_for('payslip_update', payslip_id=slip.id) if slip else url_for('payslip_create') }}" class="panel form-grid" id="payslip-form">
+  <div class="fields three">
+    <label>วันที่จ่าย
+      <input type="date" name="pay_date" value="{{ slip.pay_date if slip else default_date }}" required>
+    </label>
+    <label>รอบเดือน
+      <select name="period_month" required>
+        {% for i in range(1, 13) %}
+          <option value="{{ i }}" {% if (slip.period_month if slip else default_month) == i %}selected{% endif %}>{{ thai_months[i] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>รอบปี
+      <input type="number" name="period_year" min="2000" max="2100" value="{{ slip.period_year if slip else default_year }}" required>
+    </label>
+  </div>
+  <div class="fields three">
+    <label>ชื่อพนักงาน
+      <input type="text" name="employee_name" value="{{ slip.employee_name if slip else '' }}" required>
+    </label>
+    <label>รหัสพนักงาน
+      <input type="text" name="employee_id" value="{{ slip.employee_id if slip else '' }}">
+    </label>
+    <label>บริษัท / นายจ้าง
+      <input type="text" name="company_name" value="{{ slip.company_name if slip else '' }}">
+    </label>
+  </div>
+  <label>หมายเหตุ
+    <textarea name="notes" rows="2">{{ slip.notes if slip else '' }}</textarea>
+  </label>
+
+  <div class="split">
+    <section>
+      <h2 class="income">รายรับจากสลิป</h2>
+      <div id="income-lines" class="line-list">
+        {% set income_rows = slip.income_lines if slip and slip.income_lines else [{}] %}
+        {% for line in income_rows %}
+          <div class="line-row">
+            <select name="income_category_id">
+              <option value="">เลือกหมวด</option>
+              {% for cat in income_categories %}
+                <option value="{{ cat.id }}" {% if line.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="income_description" placeholder="รายละเอียด" value="{{ line.description or '' }}">
+            <input type="text" name="income_amount" class="money" placeholder="0.00" value="{{ '%.2f'|format(line.amount_satang / 100) if line.amount_satang else '' }}">
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="btn ghost" data-add-line="income">+ เพิ่มรายรับ</button>
+    </section>
+    <section>
+      <h2 class="expense">รายจ่าย / รายการหักจากสลิป</h2>
+      <div id="expense-lines" class="line-list">
+        {% set expense_rows = slip.expense_lines if slip and slip.expense_lines else [{}] %}
+        {% for line in expense_rows %}
+          <div class="line-row">
+            <select name="expense_category_id">
+              <option value="">เลือกหมวด</option>
+              {% for cat in expense_categories %}
+                <option value="{{ cat.id }}" {% if line.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="expense_description" placeholder="รายละเอียด" value="{{ line.description or '' }}">
+            <input type="text" name="expense_amount" class="money" placeholder="0.00" value="{{ '%.2f'|format(line.amount_satang / 100) if line.amount_satang else '' }}">
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="btn ghost" data-add-line="expense">+ เพิ่มรายจ่าย</button>
+    </section>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn primary">บันทึกสลิปและลงบัญชี</button>
+    <a class="btn" href="{{ url_for('payslip_list') }}">ยกเลิก</a>
+  </div>
+</form>
+
+<template id="income-template">
+  <div class="line-row">
+    <select name="income_category_id">
+      <option value="">เลือกหมวด</option>
+      {% for cat in income_categories %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="income_description" placeholder="รายละเอียด">
+    <input type="text" name="income_amount" class="money" placeholder="0.00">
+  </div>
+</template>
+<template id="expense-template">
+  <div class="line-row">
+    <select name="expense_category_id">
+      <option value="">เลือกหมวด</option>
+      {% for cat in expense_categories %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="expense_description" placeholder="รายละเอียด">
+    <input type="text" name="expense_amount" class="money" placeholder="0.00">
+  </div>
+</template>
+{% endblock %}
