@@ -16,9 +16,11 @@ def test_install_scripts_target_chatriacc_and_65():
     assert "chatriacc-run.sh" in unit
     assert "/home/aaa/chatriacc" in unit
     assert "chatriacc.wsgi:app" in runner
-    assert "8090" in unit
-    assert "CAP_NET_BIND_SERVICE" in unit
-    assert "CHATRIACC_BIND_80" in runner
+    assert "8100" in unit
+    assert "CHATRIACC_PORT=8100" in unit
+    assert "CHATRIACC_PORT:-8100" in runner
+    assert "CHATRIACC_BIND_80=0" in install
+    assert "8100" in ports
     assert "192.168.10.0/24" in ports
 
 

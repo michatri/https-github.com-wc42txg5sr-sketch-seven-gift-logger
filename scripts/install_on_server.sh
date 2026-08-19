@@ -55,14 +55,14 @@ port_busy() {
   ss -lnt 2>/dev/null | awk '{print $4}' | grep -qE ":${p}$"
 }
 
-BIND_PORT="${CHATRIACC_PORT:-8090}"
+BIND_PORT="${CHATRIACC_PORT:-8100}"
 if port_busy "$BIND_PORT"; then
-  echo "==> พอร์ต ${BIND_PORT} ถูกใช้แล้ว จะใช้ 8100 แทน"
-  BIND_PORT="8100"
+  echo "==> พอร์ต ${BIND_PORT} ถูกใช้แล้ว จะใช้ 8110 แทน"
+  BIND_PORT="8110"
 fi
 if port_busy "$BIND_PORT"; then
   echo "ERROR: พอร์ต ${BIND_PORT} ก็ถูกใช้แล้วเช่นกัน"
-  ss -lntp | grep -E ':8090|:8100|:80[[:space:]]' || true
+  ss -lntp | grep -E ':8100|:8110|:8090|:80[[:space:]]' || true
   exit 1
 fi
 
@@ -81,7 +81,7 @@ cat > "$ENV_FILE" <<EOF
 CHATRIACC_SECRET=${SECRET}
 CHATRIACC_HOST=${BIND_HOST}
 CHATRIACC_PORT=${BIND_PORT}
-CHATRIACC_BIND_80=1
+CHATRIACC_BIND_80=0
 CHATRIACC_DB=${ROOT}/data/chatriacc.db
 CHATRIACC_SERVER_IP=${SERVER_IP}
 EOF
@@ -103,7 +103,7 @@ Environment=PYTHONPATH=${ROOT}
 Environment=PYTHONUNBUFFERED=1
 Environment=CHATRIACC_DB=${ROOT}/data/chatriacc.db
 Environment=CHATRIACC_PORT=${BIND_PORT}
-Environment=CHATRIACC_BIND_80=1
+Environment=CHATRIACC_BIND_80=0
 EnvironmentFile=-/etc/chatriacc.env
 ExecStart=${ROOT}/scripts/chatriacc-run.sh
 Restart=on-failure
@@ -117,9 +117,9 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 WantedBy=multi-user.target
 EOF
 
-echo "==> เปิดไฟร์วอลล์พอร์ต 80 และ ${BIND_PORT} สำหรับ LAN"
+echo "==> เปิดไฟร์วอลล์พอร์ต ${BIND_PORT} สำหรับ LAN"
 chmod +x "$ROOT/scripts/open_lan_ports.sh"
-CHATRIACC_LAN=192.168.10.0/24 "$ROOT/scripts/open_lan_ports.sh" || true
+CHATRIACC_LAN=192.168.10.0/24 "$ROOT/scripts/open_lan_ports.sh" "${BIND_PORT}" || true
 
 if command -v fuser >/dev/null 2>&1; then
   fuser -k "${BIND_PORT}/tcp" 2>/dev/null || true
@@ -133,7 +133,7 @@ systemctl --no-pager --full status "$SERVICE_NAME" || true
 
 echo
 echo "==> ตรวจจากเครื่องเซิร์ฟเวอร์เอง"
-ss -lntp | grep -E ":${BIND_PORT}|:80[[:space:]]" || true
+ss -lntp | grep -E ":${BIND_PORT}" || true
 LOCAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 if curl -fsS --max-time 5 "http://127.0.0.1:${BIND_PORT}/health"; then
   echo
@@ -141,11 +141,6 @@ if curl -fsS --max-time 5 "http://127.0.0.1:${BIND_PORT}/health"; then
   echo "เปิดจากเครื่องใน LAN ด้วย http (อย่าใช้ https):"
   echo "  http://${SERVER_IP}:${BIND_PORT}/"
   echo "  http://${LOCAL_IP}:${BIND_PORT}/"
-  if curl -fsS --max-time 2 "http://127.0.0.1/health" >/dev/null 2>&1; then
-    echo "  http://${SERVER_IP}/"
-  else
-    echo "พอร์ต 80 ยังไม่เปิด — ต้องพิมพ์ :${BIND_PORT} ท้าย IP"
-  fi
 else
   echo
   echo "ERROR: ยังเรียก http://127.0.0.1:${BIND_PORT}/health ไม่ได้"

@@ -37,7 +37,7 @@ chmod +x scripts/install_on_server.sh
 sudo ./scripts/install_on_server.sh
 ```
 
-เปิดจากเครื่องใน LAN: **http://192.168.10.65:8090/** (ต้องมี `http://` และ `:8090`)
+เปิดจากเครื่องใน LAN: **http://192.168.10.65:8100/** (ต้องมี `http://` และ `:8100`)
 
 พิมพ์แค่ `192.168.10.65` หรือใช้ `https://` จะขึ้นว่าใช้เวลาตอบกลับนานเกินไป
 
@@ -60,7 +60,7 @@ pip install -r requirements.txt
 python -m chatriacc
 ```
 
-เปิดเบราว์เซอร์ที่ <http://127.0.0.1:8090>
+เปิดเบราว์เซอร์ที่ <http://127.0.0.1:8100>
 
 ฐานข้อมูลจะถูกสร้างที่ `data/chatriacc.db`
 
@@ -68,7 +68,7 @@ python -m chatriacc
 
 - `CHATRIACC_DB` — ตำแหน่งไฟล์ SQLite
 - `CHATRIACC_SECRET` — secret key ของ Flask
-- `CHATRIACC_HOST` / `CHATRIACC_PORT` — ที่อยู่และพอร์ตที่เปิดเว็บ
+- `CHATRIACC_HOST` / `CHATRIACC_PORT` — ที่อยู่และพอร์ตที่เปิดเว็บ (ค่าเริ่มต้นพอร์ต **8100**)
 
 ## ทดสอบ
 

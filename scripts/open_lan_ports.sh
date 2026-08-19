@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# เปิดไฟร์วอลล์ให้เครื่องใน LAN เข้า chatriACC ได้ทั้งพอร์ต 80 และ 8090
+# เปิดไฟร์วอลล์ให้เครื่องใน LAN เข้า chatriACC ที่พอร์ต 8100 (สำรอง 8110)
+# Usage: sudo ./scripts/open_lan_ports.sh [port]
 set -euo pipefail
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -8,7 +9,8 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 LAN="${CHATRIACC_LAN:-192.168.10.0/24}"
-PORTS=(80 8090 8100)
+MAIN_PORT="${1:-8100}"
+PORTS=("${MAIN_PORT}" 8110)
 
 open_port() {
   local port="$1"
@@ -37,6 +39,5 @@ fi
 
 echo
 echo "จากเครื่องอื่นใน LAN ให้เปิด:"
-echo "  http://$(hostname -I 2>/dev/null | awk '{print $1}'):8090/"
-echo "  http://$(hostname -I 2>/dev/null | awk '{print $1}' )/"
-echo "ใช้ http เท่านั้น อย่าพิมพ์ https"
+echo "  http://$(hostname -I 2>/dev/null | awk '{print $1}'):${MAIN_PORT}/"
+echo "ใช้ http เท่านั้น อย่าพิมพ์ https และต้องใส่ :${MAIN_PORT}"

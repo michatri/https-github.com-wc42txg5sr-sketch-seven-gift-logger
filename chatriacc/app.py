@@ -15,7 +15,7 @@ from .money import baht_text, baht_to_satang, format_baht
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = Path(os.environ.get("CHATRIACC_DB", ROOT / "data" / "chatriacc.db"))
 DEFAULT_HOST = os.environ.get("CHATRIACC_HOST", "0.0.0.0")
-DEFAULT_PORT = int(os.environ.get("CHATRIACC_PORT", "8090"))
+DEFAULT_PORT = int(os.environ.get("CHATRIACC_PORT", "8100"))
 
 
 def create_app(db_path: str | Path | None = None) -> Flask:

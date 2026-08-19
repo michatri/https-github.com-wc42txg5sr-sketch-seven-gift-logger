@@ -8,7 +8,7 @@ export PYTHONPATH="$ROOT"
 export PYTHONUNBUFFERED=1
 
 HOST="${CHATRIACC_HOST:-0.0.0.0}"
-PORT="${CHATRIACC_PORT:-8090}"
+PORT="${CHATRIACC_PORT:-8100}"
 export CHATRIACC_DB="${CHATRIACC_DB:-$ROOT/data/chatriacc.db}"
 
 mkdir -p "$ROOT/data" "$ROOT/data/uploads"
@@ -29,7 +29,7 @@ port_busy() {
 if port_busy "$PORT"; then
   log "พอร์ต ${PORT} ถูกใช้แล้ว"
   ss -lntp 2>/dev/null | grep -E ":${PORT}([[:space:]]|$)" || true
-  log "ถ้า accounting.service ใช้ 8090 อยู่ ให้ใส่ CHATRIACC_PORT=8100 ใน /etc/chatriacc.env"
+  log "พอร์ต ${PORT} ชนกับบริการอื่น — ตั้ง CHATRIACC_PORT=8110 ใน /etc/chatriacc.env"
   exit 1
 fi
 
@@ -59,12 +59,7 @@ if ! "$PY" -c "from chatriacc.wsgi import app; print('import-ok', app.name)"; th
 fi
 
 BINDS=(--bind "${HOST}:${PORT}")
-if [[ "${CHATRIACC_BIND_80:-1}" == "1" ]] && ! port_busy 80; then
-  BINDS+=(--bind "${HOST}:80")
-  log "เปิดพอร์ต 80 ด้วย เพื่อให้เข้า http://IP/ ได้โดยไม่ต้องพิมพ์ :${PORT}"
-else
-  log "ข้ามพอร์ต 80 (ถูกใช้แล้วหรือปิดไว้) — เปิดที่ http://IP:${PORT}/"
-fi
+log "เปิดเฉพาะพอร์ต ${PORT} สำหรับ chatriACC — http://IP:${PORT}/"
 
 log "gunicorn ${BINDS[*]} db=${CHATRIACC_DB}"
 exec "$GUNI" \
