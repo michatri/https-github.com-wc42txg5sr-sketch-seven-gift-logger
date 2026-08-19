@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}งบดุล · {{ app_name }}{% endblock %}
+{% block heading %}งบดุล ปี {{ year_label }}{% endblock %}
+{% block sub %}{{ church_name }}{% endblock %}
+{% block content %}
+<section class="split">
+  <article class="card">
+    <h2>สินทรัพย์</h2>
+    <h3>เงินสด</h3>
+    <table>
+      {% for row in sheet.cash %}
+      <tr><td>{{ row.name }}</td><td class="num">{{ format_baht(row.amount_satang) }}</td></tr>
+      {% endfor %}
+      <tr><th>รวมเงินสด</th><th class="num">{{ format_baht(sheet.cash_total) }}</th></tr>
+    </table>
+    <h3>เงินฝาก</h3>
+    <table>
+      {% for row in sheet.banks %}
+      <tr>
+        <td>{{ row.bank_name }} {{ row.account_no }} {% if row.branch %}({{ row.branch }}){% endif %}</td>
+        <td class="num">{{ format_baht(row.amount_satang) }}</td>
+      </tr>
+      {% endfor %}
+      <tr><th>รวมเงินฝาก</th><th class="num">{{ format_baht(sheet.bank_total) }}</th></tr>
+    </table>
+    <h3>ลูกหนี้</h3>
+    <table>
+      {% for row in sheet.receivables %}
+      <tr><td>{{ row.name }}</td><td class="num">{{ format_baht(row.amount_satang) }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="total">รวมสินทรัพย์ {{ format_baht(sheet.assets_total) }}</p>
+  </article>
+  <article class="card">
+    <h2>หนี้สิน และทุน</h2>
+    <h3>หนี้สิน</h3>
+    <table>
+      {% for row in sheet.liabilities %}
+      <tr><td>{{ row.name }}</td><td class="num">{{ format_baht(row.amount_satang) }}</td></tr>
+      {% else %}
+      <tr><td>ไม่มีหนี้สิน</td><td class="num">0.00</td></tr>
+      {% endfor %}
+      <tr><th>รวมหนี้สิน</th><th class="num">{{ format_baht(sheet.liab_total) }}</th></tr>
+    </table>
+    <h3>ทุน</h3>
+    <table>
+      {% for row in sheet.equity %}
+      <tr><td>{{ row.name }}</td><td class="num">{{ format_baht(row.amount_satang) }}</td></tr>
+      {% endfor %}
+      <tr><th>รวมทุน</th><th class="num">{{ format_baht(sheet.equity_total) }}</th></tr>
+    </table>
+    <p class="total">รวมหนี้สินและทุน {{ format_baht(sheet.liab_equity_total) }}</p>
+  </article>
+</section>
+<p class="hint">ยอดเงินสดและเงินฝากแก้ไขได้ที่หน้าตั้งค่าวัด (เทียบกับนับเงินสด / Up BookBank ของโปรแกรมเดิม)</p>
+{% endblock %}

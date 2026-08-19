@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}ปีบัญชี · {{ app_name }}{% endblock %}
+{% block heading %}ปีบัญชีและการนำเข้าไฟล์{% endblock %}
+{% block sub %}แต่ละปีใช้ไฟล์โปรแกรมบัญชีวัด 1 ไฟล์ ชื่อ AC + ปี 2 หลัก + รหัสวัด เช่น {{ expected_file }}{% endblock %}
+{% block content %}
+
+<section class="card">
+  <h2>เตรียมปีใหม่</h2>
+  <p>เทียบกับการเปิดไฟล์ใหม่ของ Excel แต่ไม่ลบปีเก่า ใบสำคัญปีใหม่เริ่มที่ CRV-001 / CPV-001</p>
+  <form method="post" class="form-grid">
+    <input type="hidden" name="action" value="prepare">
+    <label>ปีบัญชี (ค.ศ.)
+      <input name="year" type="number" min="1990" max="2100" value="{{ next_year }}" required>
+    </label>
+    <label>ไฟล์ที่ต้องใช้
+      <input value="{{ next_file }}" readonly>
+    </label>
+    <div class="btn-row" style="align-self:end">
+      <button class="btn primary" type="submit">เตรียมปีนี้</button>
+    </div>
+  </form>
+  <p class="hint">ตัวอย่าง ปี 2025 รหัสวัด 209 → <code>AC25-209.xlsb</code> · ปี 2026 → <code>AC26-209.xlsb</code></p>
+</section>
+
+<section class="card">
+  <h2>นำเข้าไฟล์ของปี</h2>
+  <p>เลือกไฟล์ <code>.xlsb</code> ของปีนั้น ระบบอ่านปีจากชื่อไฟล์และจากชีท DATA แล้วนำเข้าเฉพาะปีนั้น ปีอื่นในฐานไม่ถูกลบ</p>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="action" value="import">
+    <label>ไฟล์ .xlsb ของปี
+      <input type="file" name="file" accept=".xlsb,.xls,.xlsx">
+    </label>
+    {% if has_seed %}
+    <label class="check">
+      <input type="checkbox" name="use_seed" value="1">
+      ใช้ไฟล์ตัวอย่าง AC25-209 ที่มากับระบบ (ปี 2025)
+    </label>
+    {% endif %}
+    <button class="btn primary" type="submit">นำเข้าปีนี้</button>
+  </form>
+  {% if result %}
+  <p>รับ {{ result.rv }} ใบ · จ่าย {{ result.pv }} ใบ · บันทึก {{ result.created }} · ปี {{ result.years|join(', ') }} · ไฟล์ {{ result.file_name }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>ปีที่มีในระบบ</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ปี ค.ศ. / พ.ศ.</th>
+        <th>ไฟล์ที่ต้องใช้</th>
+        <th>ไฟล์ที่นำเข้าแล้ว</th>
+        <th class="num">ใบรับ</th>
+        <th class="num">ใบจ่าย</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for y in years %}
+      <tr class="{{ 'active-year' if y.active }}">
+        <td>{{ y.year }} / {{ y.year + 543 }}{% if y.active %} · กำลังใช้{% endif %}</td>
+        <td><code>{{ y.expected_file }}</code></td>
+        <td>{{ y.file_name or 'ยังไม่มี — รอไฟล์' }}</td>
+        <td class="num">{{ y.rv_count }}</td>
+        <td class="num">{{ y.pv_count }}</td>
+        <td>
+          {% if not y.active %}
+          <form method="post" action="{{ url_for('select_year') }}">
+            <input type="hidden" name="year" value="{{ y.year }}">
+            <button class="btn" type="submit">ใช้ปีนี้</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">ยังไม่มีปีบัญชี</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

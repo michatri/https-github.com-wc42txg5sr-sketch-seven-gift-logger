@@ -1,0 +1,24 @@
+[Unit]
+Description=chatriACC church accounting
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aaa
+Group=aaa
+WorkingDirectory=/home/aaa/chatriacc
+Environment=PYTHONPATH=/home/aaa/chatriacc
+Environment=PYTHONUNBUFFERED=1
+Environment=CHATRIACC_DB=/home/aaa/chatriacc/data/chatriacc.db
+Environment=CHATRIACC_PORT=8100
+Environment=CHATRIACC_BIND_80=0
+EnvironmentFile=-/etc/chatriacc.env
+ExecStart=/home/aaa/chatriacc/scripts/chatriacc-run.sh
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+SyslogIdentifier=chatriacc
+
+[Install]
+WantedBy=multi-user.target

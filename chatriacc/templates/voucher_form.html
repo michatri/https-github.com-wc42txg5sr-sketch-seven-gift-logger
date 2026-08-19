@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% set title_th = 'ใบสำคัญรับ' if kind == 'rv' else 'ใบสำคัญจ่าย' %}
+{% block title %}{{ title_th }}ใหม่ · {{ app_name }}{% endblock %}
+{% block heading %}{{ title_th }}ใหม่{% endblock %}
+{% block sub %}ลงได้ไม่เกิน 7 รายการต่อใบ ตามลำดับ — เมื่อเก็บแล้วแก้ไขไม่ได้ ต้องยกเลิกแล้วทำใหม่{% endblock %}
+{% block content %}
+<form method="post" class="card form-card">
+  <div class="form-grid">
+    <label>เลขที่ถัดไป
+      <input value="{{ voucher_label(kind, next_number) }}" disabled>
+    </label>
+    <label>ผู้ลงบัญชี
+      <input name="officer" value="{{ officer }}">
+    </label>
+    <label>เจ้าอาวาส : ผู้ตรวจบัญชี
+      <input name="reviewer" value="{{ reviewer }}">
+    </label>
+  </div>
+
+  <table class="entry">
+    <thead>
+      <tr>
+        <th>ลำดับ</th>
+        <th>วันที่</th>
+        <th>รายการ</th>
+        <th>เช็ค/โอน</th>
+        <th>จำนวนเงิน</th>
+        <th>รหัส</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in range(1,8) %}
+      <tr>
+        <td>{{ i }}</td>
+        <td><input type="date" name="date_{{ i }}" {% if i == 1 %}value="{{ today }}"{% endif %}></td>
+        <td><input name="detail_{{ i }}" placeholder="รายการ{{ 'รับ' if kind == 'rv' else 'จ่าย' }}"></td>
+        <td class="center"><input type="checkbox" name="bank_{{ i }}" value="1"></td>
+        <td><input name="amount_{{ i }}" inputmode="decimal" class="num" placeholder="0.00"></td>
+        <td>
+          <select name="code_{{ i }}">
+            <option value=""></option>
+            {% for acc in accounts %}
+            <option value="{{ acc.code }}">{{ acc.code }} {{ acc.name }}</option>
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>เช็ค / โอน (ถ้ามี)</h3>
+  <table class="entry">
+    <thead>
+      <tr><th></th><th>เลขที่</th><th>ลงวันที่</th><th>จาก / ถึง</th><th>จำนวนเงิน</th></tr>
+    </thead>
+    <tbody>
+      {% for i in range(1,4) %}
+      <tr>
+        <td>เช็ค/โอน {{ i }}</td>
+        <td><input name="tr_no_{{ i }}"></td>
+        <td><input type="date" name="tr_date_{{ i }}"></td>
+        <td><input name="tr_party_{{ i }}"></td>
+        <td><input name="tr_amt_{{ i }}" class="num" inputmode="decimal"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="btn-row">
+    <button class="btn primary" type="submit">เก็บข้อมูล</button>
+    <a class="btn" href="{{ url_for('dashboard') }}">ยกเลิก</a>
+  </div>
+  <p class="hint">ทางวัดต้องเก็บรักษาใบสำคัญนี้ แนบกับใบเสร็จหรือใบแทนฯ ตามรายการนั้นๆ</p>
+</form>
+{% endblock %}

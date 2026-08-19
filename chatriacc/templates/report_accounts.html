@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}รายงานรหัสบัญชี · {{ app_name }}{% endblock %}
+{% block heading %}รายงานรหัสบัญชี ปี {{ year_label }}{% endblock %}
+{% block sub %}{{ church_name }} · เรียงตามรหัสบัญชี · มียอดสรุปรายรหัสและทั้งรายงาน{% endblock %}
+{% block actions %}
+  <div class="btn-row no-print">
+    <button class="btn" type="button" onclick="window.print()">พิมพ์</button>
+  </div>
+{% endblock %}
+{% block content %}
+<form class="filters no-print" method="get">
+  <div class="form-grid">
+    <label>เดือน
+      <select name="month">
+        <option value="0" {% if month == 0 %}selected{% endif %}>ทั้งปี</option>
+        {% for m in range(1,13) %}
+        <option value="{{ m }}" {% if month == m %}selected{% endif %}>{{ thai_months[m] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>ประเภท
+      <select name="kind">
+        <option value="" {% if not kind %}selected{% endif %}>รับและจ่าย</option>
+        <option value="rv" {% if kind == 'rv' %}selected{% endif %}>เฉพาะรายรับ</option>
+        <option value="pv" {% if kind == 'pv' %}selected{% endif %}>เฉพาะรายจ่าย</option>
+      </select>
+    </label>
+  </div>
+
+  <section class="card code-picker">
+    <h2>เลือกรหัสบัญชี</h2>
+    <p class="hint">ไม่เลือกเลย = แสดงทุกรหัสที่มีรายการ · เลือกแล้วจะแสดงเฉพาะรหัสนั้น เรียงจากรหัสน้อยไปมาก</p>
+    <div class="btn-row">
+      <button class="btn" type="button" data-codes="income">เลือกทุกรหัสรับ</button>
+      <button class="btn" type="button" data-codes="expense">เลือกทุกรหัสจ่าย</button>
+      <button class="btn" type="button" data-codes="all">เลือกทั้งหมด</button>
+      <button class="btn" type="button" data-codes="none">ล้าง</button>
+    </div>
+    <div class="split">
+      <div>
+        <h3>รหัสรับ</h3>
+        {% for acc in income_acc %}
+        <label class="check">
+          <input type="checkbox" name="code" value="{{ acc.code }}" data-kind="income" {% if acc.code in selected %}checked{% endif %}>
+          {{ acc.code }} {{ acc.name }}
+        </label>
+        {% endfor %}
+      </div>
+      <div>
+        <h3>รหัสจ่าย</h3>
+        {% for acc in expense_acc %}
+        <label class="check">
+          <input type="checkbox" name="code" value="{{ acc.code }}" data-kind="expense" {% if acc.code in selected %}checked{% endif %}>
+          {{ acc.code }} {{ acc.name }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" type="submit">แสดงรายงาน</button>
+    </div>
+  </section>
+</form>
+
+<section class="kpis">
+  <article class="kpi">
+    <span>รวมรายรับ</span>
+    <strong class="pos">{{ format_baht(report.income_total) }}</strong>
+    <small>{{ 'รหัสที่เลือก' if filtered else 'ทุกรหัสที่มีรายการ' }}</small>
+  </article>
+  <article class="kpi">
+    <span>รวมรายจ่าย</span>
+    <strong class="neg">{{ format_baht(report.expense_total) }}</strong>
+    <small>{{ report.grand_count }} รายการ</small>
+  </article>
+  <article class="kpi">
+    <span>คงเหลือ (รับ หัก จ่าย)</span>
+    <strong class="{{ 'pos' if report.net >= 0 else 'neg' }}">{{ format_baht(report.net) }}</strong>
+    <small>{{ report.groups|length }} รหัสบัญชี</small>
+  </article>
+  <article class="kpi">
+    <span>ยอดรวมทุกรายการ</span>
+    <strong>{{ format_baht(report.grand_total) }}</strong>
+    <small>{{ thai_months[month] if month else 'ทั้งปี ' ~ year_label }}</small>
+  </article>
+</section>
+
+<section class="card">
+  <h2>สรุปตามรหัสบัญชี</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>รหัส</th>
+        <th>รายการ</th>
+        <th>ประเภท</th>
+        <th class="num">จำนวนรายการ</th>
+        <th class="num">ยอดรวม</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in report.groups %}
+      <tr>
+        <td><a href="#acc-{{ g.code }}">{{ g.code }}</a></td>
+        <td>{{ g.name }}</td>
+        <td>{{ 'รับ' if g.kind == 'income' else 'จ่าย' }}</td>
+        <td class="num">{{ g.count }}</td>
+        <td class="num">{{ format_baht(g.total) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">ไม่พบรายการตามรหัสที่เลือก</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if report.groups %}
+    <tfoot>
+      <tr>
+        <th colspan="3">รวมทุกรหัส</th>
+        <th class="num">{{ report.grand_count }}</th>
+        <th class="num">{{ format_baht(report.grand_total) }}</th>
+      </tr>
+      <tr>
+        <th colspan="4">รวมรับ</th>
+        <th class="num pos">{{ format_baht(report.income_total) }}</th>
+      </tr>
+      <tr>
+        <th colspan="4">รวมจ่าย</th>
+        <th class="num neg">{{ format_baht(report.expense_total) }}</th>
+      </tr>
+      <tr>
+        <th colspan="4">คงเหลือ</th>
+        <th class="num">{{ format_baht(report.net) }}</th>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</section>
+
+{% for g in report.groups %}
+<section class="card" id="acc-{{ g.code }}">
+  <h2>{{ g.code }} {{ g.name }}</h2>
+  <p>{{ 'รายรับ' if g.kind == 'income' else 'รายจ่าย' }} · {{ g.count }} รายการ · รวม {{ format_baht(g.total) }} บาท</p>
+  <table>
+    <thead>
+      <tr>
+        <th>วันที่</th>
+        <th>เลขที่</th>
+        <th>รายการ</th>
+        <th class="num">จำนวนเงิน</th>
+        <th>ธนาคาร</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in g.rows %}
+      <tr>
+        <td>{{ thai_date(row.txn_date, True) }}</td>
+        <td><a href="{{ url_for('voucher_detail', voucher_id=row.voucher_id) }}">{{ voucher_label(row.kind, row.number) }}</a></td>
+        <td>{{ row.detail }}</td>
+        <td class="num">{{ format_baht(row.amount_satang) }}</td>
+        <td>{{ '✓' if row.bank_flag else '' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">ไม่มีรายการในช่วงนี้</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="3">รวมรหัส {{ g.code }}</th>
+        <th class="num">{{ format_baht(g.total) }}</th>
+        <th></th>
+      </tr>
+    </tfoot>
+  </table>
+</section>
+{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.querySelector("form.filters");
+  if (!form) return;
+  form.querySelectorAll("[data-codes]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = btn.getAttribute("data-codes");
+      form.querySelectorAll('input[name="code"]').forEach((box) => {
+        if (mode === "all") box.checked = true;
+        else if (mode === "none") box.checked = false;
+        else box.checked = box.getAttribute("data-kind") === mode;
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

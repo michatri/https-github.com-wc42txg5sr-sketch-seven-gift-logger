@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}นำเข้าไฟล์ปี · {{ app_name }}{% endblock %}
+{% block heading %}นำเข้าไฟล์บัญชีวัด{% endblock %}
+{% block sub %}แต่ละปี 1 ไฟล์ ชื่อ {{ expected_file }} — ดูปีทั้งหมดที่เมนู ปีบัญชี / นำเข้าไฟล์{% endblock %}
+{% block content %}
+<section class="card">
+  <p>ไฟล์ต้นทางคือโปรแกรมบัญชีวัดของอัครสังฆมณฑลกรุงเทพฯ ปีละหนึ่งไฟล์ เช่น <code>AC25-209.xlsb</code> ปี 2025 และ <code>AC26-209.xlsb</code> ปี 2026</p>
+  <p>ปีที่กำลังใช้: <strong>{{ year_label }}</strong> · ใบสำคัญปีนี้ {{ voucher_count }} ใบ · ไฟล์ที่ต้องใช้ <code>{{ expected_file }}</code></p>
+  <p class="hint">นำเข้าแล้วจะแทนที่เฉพาะปีในไฟล์นั้น ปีอื่นในระบบยังอยู่</p>
+  <form method="post" enctype="multipart/form-data">
+    <label>เลือกไฟล์ .xlsb ของปี
+      <input type="file" name="file" accept=".xlsb,.xls,.xlsx">
+    </label>
+    {% if has_seed %}
+    <label class="check">
+      <input type="checkbox" name="use_seed" value="1" {% if voucher_count == 0 %}checked{% endif %}>
+      ใช้ไฟล์ AC25-209 ที่มากับระบบ (ปี 2025)
+    </label>
+    {% endif %}
+    <button class="btn primary" type="submit">นำเข้า</button>
+  </form>
+  {% if result %}
+  <p>รับ {{ result.rv }} ใบ · จ่าย {{ result.pv }} ใบ · บันทึกสำเร็จ {{ result.created }} · ข้าม {{ result.skipped }} · ปี {{ result.years|join(', ') }}</p>
+  {% endif %}
+  <p><a href="{{ url_for('years_page') }}">เตรียมปีใหม่ หรือดูรายการปีทั้งหมด</a></p>
+</section>
+{% endblock %}

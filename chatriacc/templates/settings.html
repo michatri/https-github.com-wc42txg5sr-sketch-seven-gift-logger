@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}ตั้งค่าวัด · {{ app_name }}{% endblock %}
+{% block heading %}ตั้งค่าวัด{% endblock %}
+{% block content %}
+<form method="post">
+  <section class="card">
+    <h2>ข้อมูลวัด</h2>
+    <div class="form-grid">
+      <label>รหัสวัด <input name="church_id" value="{{ settings.church_id }}"></label>
+      <label>ชื่อวัด <input name="church_name" value="{{ settings.church_name }}"></label>
+      <label>สังฆมณฑล <input name="diocese" value="{{ settings.diocese }}"></label>
+      <label>เจ้าอาวาส <input name="parish_priest" value="{{ settings.parish_priest }}"></label>
+      <label>คุณพ่อผู้ช่วย <input name="assistant_priest" value="{{ settings.assistant_priest }}"></label>
+      <label>ผู้ลงบัญชี <input name="officer" value="{{ settings.officer }}"></label>
+    </div>
+  </section>
+  <section class="card">
+    <h2>เงินสด</h2>
+    <table>
+      <thead><tr><th>ผู้ถือเงิน</th><th>จำนวนเงิน</th></tr></thead>
+      <tbody>
+        {% for row in cash %}
+        <tr>
+          <td><input name="cash_name_{{ loop.index }}" value="{{ row.name }}"></td>
+          <td><input name="cash_amt_{{ loop.index }}" class="num" value="{{ format_baht(row.amount_satang).replace(',', '') }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="card">
+    <h2>เงินฝากธนาคาร</h2>
+    <table>
+      <thead><tr><th>ธนาคาร</th><th>เลขบัญชี</th><th>สาขา</th><th>จำนวนเงิน</th></tr></thead>
+      <tbody>
+        {% for row in banks %}
+        <tr>
+          <td><input name="bank_name_{{ loop.index }}" value="{{ row.bank_name }}"></td>
+          <td><input name="bank_no_{{ loop.index }}" value="{{ row.account_no }}"></td>
+          <td><input name="bank_branch_{{ loop.index }}" value="{{ row.branch }}"></td>
+          <td><input name="bank_amt_{{ loop.index }}" class="num" value="{{ format_baht(row.amount_satang).replace(',', '') }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <button class="btn primary" type="submit">บันทึก</button>
+</form>
+<section class="card">
+  <h2>ปีบัญชี</h2>
+  <p>ปีที่กำลังใช้ {{ year_label }} · ไฟล์ของปีนี้ <code>{{ expected_file }}</code></p>
+  <p><a class="btn" href="{{ url_for('years_page') }}">เตรียมปีใหม่ / นำเข้าไฟล์รายปี</a></p>
+</section>
+<section class="card danger-zone">
+  <h2>ลบเฉพาะปีที่กำลังใช้</h2>
+  <p>ลบใบสำคัญ ครุภัณฑ์ และประมาณการของปี {{ fiscal_year }} เท่านั้น ปีอื่นในระบบไม่ถูกลบ — เรียกคืนไม่ได้</p>
+  <form method="post" action="{{ url_for('clear_year') }}" onsubmit="return confirm('ลบข้อมูลปี {{ fiscal_year }} ทั้งปี เรียกคืนไม่ได้')">
+    <button class="btn danger" type="submit">ลบข้อมูลปี {{ fiscal_year }}</button>
+  </form>
+</section>
+{% endblock %}

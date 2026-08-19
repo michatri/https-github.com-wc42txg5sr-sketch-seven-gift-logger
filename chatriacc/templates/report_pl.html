@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}งบบัญชีรับจ่าย · {{ app_name }}{% endblock %}
+{% block heading %}งบบัญชีรับจ่าย ปี {{ year_label }}{% endblock %}
+{% block sub %}{{ church_name }} · รวม 12 เดือน{% endblock %}
+{% block content %}
+{% macro pl_table(title, accounts, bag, grand) %}
+<section class="card">
+  <h2>{{ title }}</h2>
+  <div class="table-scroll">
+  <table class="tight">
+    <thead>
+      <tr>
+        <th>รหัส</th>
+        <th>รายการ</th>
+        <th class="num">ทั้งปี</th>
+        {% for m in range(1,13) %}<th class="num">{{ thai_months[m][:3] }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for acc in accounts %}
+      {% set row = bag[acc.code] %}
+      <tr>
+        <td>{{ acc.code }}</td>
+        <td>{{ acc.name }}</td>
+        <td class="num">{{ format_baht(row.values()|sum if row else 0) }}</td>
+        {% for m in range(1,13) %}
+        <td class="num">{{ format_baht(row[m] if row else 0) }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      <tr>
+        <th colspan="2">รวม</th>
+        <th class="num">{{ format_baht(grand|sum) }}</th>
+        {% for m in range(1,13) %}<th class="num">{{ format_baht(grand[m]) }}</th>{% endfor %}
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endmacro %}
+
+{{ pl_table('รายรับ', income_acc, totals.income, totals.month_income) }}
+{{ pl_table('รายจ่าย', expense_acc, totals.expense, totals.month_expense) }}
+
+<section class="card">
+  <h2>รับ หัก จ่าย</h2>
+  <table>
+    <thead>
+      <tr><th></th><th class="num">ทั้งปี</th>{% for m in range(1,13) %}<th class="num">{{ thai_months[m][:3] }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>คงเหลือรายเดือน</td>
+        <td class="num">{{ format_baht(totals.net) }}</td>
+        {% for m in range(1,13) %}
+        <td class="num">{{ format_baht(totals.month_income[m] - totals.month_expense[m]) }}</td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+</section>
+{% endblock %}

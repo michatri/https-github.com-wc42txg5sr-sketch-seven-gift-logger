@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}แดชบอร์ด · {{ app_name }}{% endblock %}
+{% block heading %}แดชบอร์ดปี {{ year_label }}{% endblock %}
+{% block sub %}สรุปรายรับ-รายจ่ายจากใบสำคัญรับ/จ่าย{% endblock %}
+{% block actions %}
+  <div class="btn-row">
+    <a class="btn primary" href="{{ url_for('voucher_new', kind='rv') }}">ใบสำคัญรับใหม่</a>
+    <a class="btn" href="{{ url_for('voucher_new', kind='pv') }}">ใบสำคัญจ่ายใหม่</a>
+  </div>
+{% endblock %}
+{% block content %}
+<section class="kpis">
+  <article class="kpi">
+    <span>รายรับทั้งปี</span>
+    <strong class="pos">{{ format_baht(data.income_total) }}</strong>
+    <small>{{ data.rv_count }} ใบสำคัญรับ · ถัดไป {{ voucher_label('rv', data.next_rv) }}</small>
+  </article>
+  <article class="kpi">
+    <span>รายจ่ายทั้งปี</span>
+    <strong class="neg">{{ format_baht(data.expense_total) }}</strong>
+    <small>{{ data.pv_count }} ใบสำคัญจ่าย · ถัดไป {{ voucher_label('pv', data.next_pv) }}</small>
+  </article>
+  <article class="kpi">
+    <span>คงเหลือทั้งปี</span>
+    <strong class="{{ 'pos' if data.net >= 0 else 'neg' }}">{{ format_baht(data.net) }}</strong>
+    <small>รับ หัก จ่าย</small>
+  </article>
+  <article class="kpi">
+    <span>เดือน {{ thai_months[data.month] }}</span>
+    <strong>{{ format_baht(data.month_income_now - data.month_expense_now) }}</strong>
+    <small>รับ {{ format_baht(data.month_income_now) }} · จ่าย {{ format_baht(data.month_expense_now) }}</small>
+  </article>
+</section>
+
+<section class="card">
+  <h2>รายเดือน</h2>
+  <div class="bars">
+    {% for m in range(1,13) %}
+      {% set inc = data.month_income[m] %}
+      {% set exp = data.month_expense[m] %}
+      {% set maxv = data.month_income[1:]|max if data.month_income[1:]|max > data.month_expense[1:]|max else data.month_expense[1:]|max %}
+      <div class="bar-col" title="{{ thai_months[m] }}">
+        <div class="bar inc" style="height: {{ (inc / maxv * 120) if maxv else 0 }}px"></div>
+        <div class="bar exp" style="height: {{ (exp / maxv * 120) if maxv else 0 }}px"></div>
+        <span>{{ thai_months[m][:3] }}</span>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h2>ใบสำคัญล่าสุด</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>เลขที่</th>
+        <th>วันที่</th>
+        <th>ประเภท</th>
+        <th class="num">จำนวนเงิน</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in data.recent %}
+      <tr class="{{ 'cancelled' if row.cancelled }}">
+        <td>{{ voucher_label(row.kind, row.number) }}</td>
+        <td>{{ thai_date(row.doc_date, True) }}</td>
+        <td>{{ 'รับ' if row.kind == 'rv' else 'จ่าย' }}{% if row.cancelled %} · ยกเลิก{% endif %}</td>
+        <td class="num">{{ format_baht(row.total) }}</td>
+        <td><a href="{{ url_for('voucher_detail', voucher_id=row.id) }}">เปิด</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">ยังไม่มีใบสำคัญ — นำเข้าไฟล์ AC25 หรือบันทึกใบใหม่</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

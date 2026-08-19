@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('dashboard') }}">
+      <span class="brand-mark">ch</span>
+      <span>
+        <strong>{{ app_name }}</strong>
+        <small>ระบบบัญชีวัด</small>
+      </span>
+    </a>
+    <nav>
+      <a href="{{ url_for('dashboard') }}">แดชบอร์ด</a>
+      <a href="{{ url_for('voucher_new', kind='rv') }}">ใบสำคัญรับใหม่</a>
+      <a href="{{ url_for('voucher_new', kind='pv') }}">ใบสำคัญจ่ายใหม่</a>
+      <a href="{{ url_for('voucher_list', kind='rv') }}">ใบสำคัญรับทั้งหมด</a>
+      <a href="{{ url_for('voucher_list', kind='pv') }}">ใบสำคัญจ่ายทั้งหมด</a>
+      <a href="{{ url_for('ledger', kind='rv') }}">บัญชีรับ</a>
+      <a href="{{ url_for('ledger', kind='pv') }}">บัญชีจ่าย</a>
+      <a href="{{ url_for('report_accounts') }}">รายงานรหัสบัญชี</a>
+      <a href="{{ url_for('report_pl') }}">งบบัญชีรับจ่าย</a>
+      <a href="{{ url_for('report_balance') }}">งบดุล</a>
+      <a href="{{ url_for('report_position') }}">ฐานะการเงิน</a>
+      <a href="{{ url_for('assets') }}">ครุภัณฑ์</a>
+      <a href="{{ url_for('budget') }}">ประมาณการ</a>
+      <a href="{{ url_for('years_page') }}">ปีบัญชี / นำเข้าไฟล์</a>
+      <a href="{{ url_for('import_page') }}">นำเข้า AC25</a>
+      <a href="{{ url_for('settings') }}">ตั้งค่าวัด</a>
+    </nav>
+    <div class="side-meta">
+      <form class="year-switch" method="post" action="{{ url_for('select_year') }}">
+        <label>ปีบัญชี
+          <select name="year" onchange="this.form.submit()">
+            {% for y in available_years %}
+            <option value="{{ y.year }}" {% if y.year == fiscal_year %}selected{% endif %}>
+              {{ y.year }} / {{ y.year + 543 }}{% if y.file_name %} · {{ y.file_name }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+      </form>
+      <div>{{ church_name }}</div>
+      <div>ไฟล์ปีนี้ {{ expected_file }}</div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1>{% block heading %}{{ app_name }}{% endblock %}</h1>
+        <p class="muted">{% block sub %}{{ settings.diocese }}{% endblock %}</p>
+      </div>
+      {% block actions %}{% endblock %}
+    </header>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap">
+          {% for cat, msg in messages %}
+            <div class="flash {{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

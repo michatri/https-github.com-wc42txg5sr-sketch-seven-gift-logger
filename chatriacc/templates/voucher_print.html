@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>{{ voucher_label(data.voucher.kind, data.voucher.number) }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Sarabun, sans-serif; margin: 24px auto; max-width: 800px; color: #1a1a1a; }
+    h1, h2 { margin: 0; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a1a1a; padding-bottom: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #333; padding: 6px 8px; font-size: 14px; }
+    .num { text-align: right; }
+    .signs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 48px; text-align: center; }
+    .stamp { height: 72px; }
+    .cancelled { color: #a40000; font-weight: 700; }
+    @media print { .noprint { display: none; } body { margin: 0; } }
+  </style>
+</head>
+<body>
+  {% set v = data.voucher %}
+  <p class="noprint"><button onclick="window.print()">พิมพ์</button></p>
+  <div class="head">
+    <div>
+      <h2>{{ church_name }}</h2>
+      <div>( {{ settings.diocese }} )</div>
+    </div>
+    <div>
+      <h1>{{ 'ใบสำคัญรับ' if v.kind == 'rv' else 'ใบสำคัญจ่าย' }}</h1>
+      <div>เลขที่ {{ voucher_label(v.kind, v.number) }}</div>
+      {% if v.cancelled %}<div class="cancelled">ยกเลิกแล้ว</div>{% endif %}
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>ลำดับ</th><th>วันที่</th><th>รายการ</th><th>เช็ค/โอน</th><th>จำนวนเงิน</th><th>รหัส</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in range(1,8) %}
+        {% set line = data.lines[i-1] if i <= data.lines|length else none %}
+        <tr>
+          <td>{{ i }}</td>
+          <td>{{ thai_date(line.txn_date, True) if line else '' }}</td>
+          <td>{{ line.detail if line else '' }}</td>
+          <td>{{ '✓' if line and line.bank_flag else '' }}</td>
+          <td class="num">{{ format_baht(line.amount_satang) if line else '' }}</td>
+          <td>{{ line.account_code if line else '' }}</td>
+        </tr>
+      {% endfor %}
+      <tr>
+        <th colspan="4">รวม{{ 'รับ' if v.kind == 'rv' else 'จ่าย' }} ( {{ baht_text(data.total) }} )</th>
+        <th class="num">{{ format_baht(data.total) }}</th>
+        <th>บาท</th>
+      </tr>
+    </tbody>
+  </table>
+  <table>
+    <thead><tr><th></th><th>เลขที่</th><th>ลงวันที่</th><th>จาก / ถึง</th></tr></thead>
+    <tbody>
+      {% for i in range(1,4) %}
+        {% set tr = data.transfers[i-1] if i <= data.transfers|length else none %}
+        <tr>
+          <td>เช็ค/โอน {{ i }}</td>
+          <td>{{ tr.number if tr else '' }}</td>
+          <td>{{ thai_date(tr.transfer_date, True) if tr else '' }}</td>
+          <td>{{ tr.party if tr else '' }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="signs">
+    <div>
+      <div class="stamp">( ประทับตราวัด )</div>
+    </div>
+    <div>
+      <div>({{ v.officer }})</div>
+      <div>ผู้ลงบัญชี</div>
+    </div>
+    <div>
+      <div>({{ v.reviewer }})</div>
+      <div>เจ้าอาวาส : ผู้ตรวจบัญชี</div>
+    </div>
+  </div>
+</body>
+</html>
