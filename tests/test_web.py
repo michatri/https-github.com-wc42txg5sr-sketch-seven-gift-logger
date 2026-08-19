@@ -58,3 +58,7 @@ def test_ledger_and_pl_pages(tmp_path):
     assert "5201".encode() in by_code.data
     assert "ค่าไฟฟ้า".encode("utf-8") in by_code.data
     assert "รวมรหัส 5201".encode("utf-8") in by_code.data
+    years = client.get("/years")
+    assert years.status_code == 200
+    assert "เตรียมปี".encode("utf-8") in years.data
+    assert "AC25-209.xlsb".encode() in years.data

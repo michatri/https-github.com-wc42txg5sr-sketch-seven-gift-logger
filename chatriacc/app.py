@@ -11,6 +11,7 @@ from .dates import THAI_MONTHS, buddhist_year, iso_date, thai_date, today, year_
 from .db import Store
 from .importer import SEED_XLSB, ensure_seed_imported, import_xlsb
 from .money import baht_text, baht_to_satang, format_baht
+from .years import ac_filename, parse_ac_filename
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = Path(os.environ.get("CHATRIACC_DB", ROOT / "data" / "chatriacc.db"))
@@ -45,6 +46,8 @@ def create_app(db_path: str | Path | None = None) -> Flask:
             "church_name": s.get("church_name", ""),
             "fiscal_year": year,
             "year_label": year_label(year),
+            "available_years": store.list_years(),
+            "expected_file": store.expected_file(year),
             "thai_months": THAI_MONTHS,
             "format_baht": format_baht,
             "baht_text": baht_text,
@@ -304,7 +307,6 @@ def create_app(db_path: str | Path | None = None) -> Flask:
                     "parish_priest": request.form.get("parish_priest") or "",
                     "officer": request.form.get("officer") or "",
                     "assistant_priest": request.form.get("assistant_priest") or "",
-                    "fiscal_year": request.form.get("fiscal_year") or str(today().year),
                 }
             )
             cash = []
@@ -333,6 +335,76 @@ def create_app(db_path: str | Path | None = None) -> Flask:
         banks = list(store.bank_accounts()) + [{"bank_name": "", "account_no": "", "branch": "", "amount_satang": 0}] * 6
         return render_template("settings.html", cash=cash[:4], banks=banks[:6])
 
+    def _run_xlsb_import(path: Path):
+        result = import_xlsb(store, path, replace=True)
+        years = result.get("years") or []
+        flash(
+            f"นำเข้า {path.name} — ใบสำคัญรับ {result['rv']} ใบ จ่าย {result['pv']} ใบ"
+            + (f" ปี {', '.join(str(y) for y in years)}" if years else ""),
+            "ok",
+        )
+        return result
+
+    def _store_year_file(uploaded, fallback_year: int | None = None) -> Path:
+        meta = parse_ac_filename(uploaded.filename or "")
+        year = meta["year"] or fallback_year or store.fiscal_year()
+        dest_dir = ROOT / "data" / "years" / str(year)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        name = Path(uploaded.filename or ac_filename(year, store.setting("church_id", "209"))).name
+        path = dest_dir / name
+        uploaded.save(path)
+        return path
+
+    @app.route("/years", methods=["GET", "POST"])
+    def years_page():
+        result = None
+        if request.method == "POST":
+            action = request.form.get("action")
+            try:
+                if action == "prepare":
+                    year = request.form.get("year", type=int)
+                    if not year:
+                        raise ValueError("กรุณาใส่ปีบัญชี ค.ศ.")
+                    info = store.prepare_year(year)
+                    flash(
+                        f"เตรียมปี {year_label(year)} แล้ว ใบสำคัญเริ่มที่ CRV-001 / CPV-001 — นำเข้าไฟล์ {info['expected_file']}",
+                        "ok",
+                    )
+                    return redirect(url_for("years_page"))
+                if action == "import":
+                    uploaded = request.files.get("file")
+                    use_seed = request.form.get("use_seed") == "1"
+                    path = None
+                    if uploaded and uploaded.filename:
+                        path = _store_year_file(uploaded)
+                    elif use_seed and SEED_XLSB.exists():
+                        path = SEED_XLSB
+                    if not path:
+                        raise ValueError("กรุณาเลือกไฟล์ .xlsb ของปีนั้น")
+                    result = _run_xlsb_import(path)
+            except ValueError as exc:
+                flash(str(exc), "err")
+            except Exception as exc:
+                flash(f"นำเข้าไม่สำเร็จ: {exc}", "err")
+        nxt = store.fiscal_year() + 1
+        return render_template(
+            "years.html",
+            years=store.list_years(),
+            next_year=nxt,
+            next_file=ac_filename(nxt, store.setting("church_id", "209")),
+            result=result,
+            has_seed=SEED_XLSB.exists(),
+        )
+
+    @app.post("/years/select")
+    def select_year():
+        year = request.form.get("year", type=int)
+        if not year:
+            abort(400)
+        store.select_year(year)
+        flash(f"กำลังใช้ปีบัญชี {year_label(year)}", "ok")
+        return redirect(request.referrer or url_for("dashboard"))
+
     @app.route("/import", methods=["GET", "POST"])
     def import_page():
         result = None
@@ -340,29 +412,23 @@ def create_app(db_path: str | Path | None = None) -> Flask:
             uploaded = request.files.get("file")
             use_seed = request.form.get("use_seed") == "1"
             path = None
-            if uploaded and uploaded.filename:
-                dest = ROOT / "data" / "uploads"
-                dest.mkdir(parents=True, exist_ok=True)
-                path = dest / uploaded.filename
-                uploaded.save(path)
-            elif use_seed and SEED_XLSB.exists():
-                path = SEED_XLSB
-            if not path:
-                flash("กรุณาเลือกไฟล์ .xlsb หรือใช้ไฟล์ AC25-209 ที่มากับระบบ", "err")
-            else:
-                try:
-                    result = import_xlsb(store, path, replace=True)
-                    flash(
-                        f"นำเข้าใบสำคัญรับ {result['rv']} ใบ และใบสำคัญจ่าย {result['pv']} ใบ",
-                        "ok",
-                    )
-                except Exception as exc:
-                    flash(f"นำเข้าไม่สำเร็จ: {exc}", "err")
+            try:
+                if uploaded and uploaded.filename:
+                    path = _store_year_file(uploaded)
+                elif use_seed and SEED_XLSB.exists():
+                    path = SEED_XLSB
+                if not path:
+                    flash("กรุณาเลือกไฟล์ .xlsb หรือใช้ไฟล์ AC25-209 ที่มากับระบบ", "err")
+                else:
+                    result = _run_xlsb_import(path)
+            except Exception as exc:
+                flash(f"นำเข้าไม่สำเร็จ: {exc}", "err")
         return render_template(
             "import.html",
             result=result,
             has_seed=SEED_XLSB.exists(),
-            voucher_count=store.voucher_count(),
+            voucher_count=store.voucher_count(store.fiscal_year()),
+            years=store.list_years(),
         )
 
     @app.post("/year/clear")

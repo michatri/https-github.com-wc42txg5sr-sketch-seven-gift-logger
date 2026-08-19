@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .dates import iso_date
 from .money import baht_to_satang
+from .years import parse_ac_filename
 
 SEED_XLSB = Path(__file__).resolve().parent / "seed" / "AC25-209.xlsb"
 
@@ -248,6 +249,7 @@ def import_xlsb(store, path: str | Path, replace: bool = True) -> dict:
     rv = _collect_vouchers(data_rows, "rv")
     pv = _collect_vouchers(data_rows, "pv")
     years = {v["year"] for v in rv + pv}
+    meta = parse_ac_filename(path.name)
     if replace:
         for year in years:
             store.clear_year_data(year)
@@ -272,14 +274,14 @@ def import_xlsb(store, path: str | Path, replace: bool = True) -> dict:
             skipped += 1
             continue
 
+    year = max(years) if years else (meta["year"] or store.fiscal_year())
     try:
         asset_rows = _sheet_rows(path, "ครุภัณฑ์")
         for item in parse_assets(asset_rows):
+            item["year"] = year
             store.add_asset(item)
     except Exception:
         pass
-
-    year = max(years) if years else store.fiscal_year()
     try:
         budget_rows = _sheet_rows(path, "ประมาณการ")
         amounts, projects = parse_budget(budget_rows)
@@ -290,13 +292,26 @@ def import_xlsb(store, path: str | Path, replace: bool = True) -> dict:
 
     if years:
         store.save_settings({"fiscal_year": str(max(years))})
+    church_id = meta["church_id"] or store.setting("church_id", "209")
+    target_years = sorted(years) or ([meta["year"]] if meta["year"] else [store.fiscal_year()])
+    for y in target_years:
+        store.upsert_year(
+            y,
+            church_id=church_id,
+            file_name=path.name,
+            imported=True,
+        )
+    if church_id:
+        store.save_settings({"church_id": str(church_id)})
 
     return {
         "rv": len(rv),
         "pv": len(pv),
         "created": created,
         "skipped": skipped,
-        "years": sorted(years),
+        "years": sorted(years) or target_years,
+        "file_name": path.name,
+        "expected_file": store.expected_file(target_years[-1] if target_years else None),
     }
 
 

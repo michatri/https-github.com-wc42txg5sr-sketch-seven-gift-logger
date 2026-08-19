@@ -9,5 +9,6 @@ data/*.db
 data/*.db-journal
 data/.chatriacc-seed.lock
 data/uploads/
+data/years/
 .DS_Store
 *.log

@@ -32,12 +32,24 @@
       <a href="{{ url_for('report_position') }}">ฐานะการเงิน</a>
       <a href="{{ url_for('assets') }}">ครุภัณฑ์</a>
       <a href="{{ url_for('budget') }}">ประมาณการ</a>
+      <a href="{{ url_for('years_page') }}">ปีบัญชี / นำเข้าไฟล์</a>
       <a href="{{ url_for('import_page') }}">นำเข้า AC25</a>
       <a href="{{ url_for('settings') }}">ตั้งค่าวัด</a>
     </nav>
     <div class="side-meta">
+      <form class="year-switch" method="post" action="{{ url_for('select_year') }}">
+        <label>ปีบัญชี
+          <select name="year" onchange="this.form.submit()">
+            {% for y in available_years %}
+            <option value="{{ y.year }}" {% if y.year == fiscal_year %}selected{% endif %}>
+              {{ y.year }} / {{ y.year + 543 }}{% if y.file_name %} · {{ y.file_name }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+      </form>
       <div>{{ church_name }}</div>
-      <div>ปีบัญชี {{ year_label }}</div>
+      <div>ไฟล์ปีนี้ {{ expected_file }}</div>
     </div>
   </aside>
   <main class="main">

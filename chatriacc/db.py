@@ -9,6 +9,7 @@ from pathlib import Path
 
 from . import chart
 from .dates import iso_date, now_iso, parse_date, today
+from .years import ac_filename
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (
@@ -91,7 +92,8 @@ CREATE TABLE IF NOT EXISTS assets (
     amount_satang INTEGER NOT NULL DEFAULT 0,
     location TEXT NOT NULL DEFAULT '',
     code TEXT NOT NULL DEFAULT '',
-    reason TEXT NOT NULL DEFAULT ''
+    reason TEXT NOT NULL DEFAULT '',
+    year INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS budget_lines (
@@ -109,6 +111,16 @@ CREATE TABLE IF NOT EXISTS projects (
     name TEXT NOT NULL DEFAULT '',
     period TEXT NOT NULL DEFAULT '',
     amount_satang INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS fiscal_years (
+    year INTEGER PRIMARY KEY,
+    church_id TEXT NOT NULL DEFAULT '',
+    file_name TEXT NOT NULL DEFAULT '',
+    expected_file TEXT NOT NULL DEFAULT '',
+    prepared_at TEXT NOT NULL DEFAULT '',
+    imported_at TEXT,
+    note TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_vouchers_kind_year ON vouchers(kind, year, number);
@@ -146,7 +158,40 @@ class Store:
     def _init(self):
         with self.tx() as conn:
             conn.executescript(SCHEMA)
+            self._migrate(conn)
             self._seed(conn)
+            self._sync_years(conn)
+
+    def _migrate(self, conn: sqlite3.Connection):
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(assets)").fetchall()]
+        if "year" not in cols:
+            conn.execute("ALTER TABLE assets ADD COLUMN year INTEGER")
+            fy = conn.execute("SELECT value FROM settings WHERE key = 'fiscal_year'").fetchone()
+            year = int(fy["value"]) if fy else today().year
+            conn.execute("UPDATE assets SET year = ? WHERE year IS NULL", (year,))
+
+    def _sync_years(self, conn: sqlite3.Connection):
+        found = {int(r["year"]) for r in conn.execute("SELECT DISTINCT year FROM vouchers")}
+        row = conn.execute("SELECT value FROM settings WHERE key = 'fiscal_year'").fetchone()
+        if row:
+            try:
+                found.add(int(row["value"]))
+            except (TypeError, ValueError):
+                pass
+        church = conn.execute("SELECT value FROM settings WHERE key = 'church_id'").fetchone()
+        church_id = church["value"] if church else "209"
+        for year in sorted(found):
+            expected = ac_filename(year, church_id)
+            conn.execute(
+                """
+                INSERT INTO fiscal_years(year, church_id, expected_file, prepared_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(year) DO UPDATE SET
+                    church_id = excluded.church_id,
+                    expected_file = excluded.expected_file
+                """,
+                (year, church_id, expected, now_iso()),
+            )
 
     def _seed(self, conn: sqlite3.Connection):
         existing = conn.execute("SELECT COUNT(*) FROM accounts").fetchone()[0]
@@ -206,6 +251,107 @@ class Store:
             return int(self.setting("fiscal_year", str(today().year)))
         except ValueError:
             return today().year
+
+    def expected_file(self, year: int | None = None) -> str:
+        year = year or self.fiscal_year()
+        return ac_filename(year, self.setting("church_id", "209"))
+
+    def upsert_year(
+        self,
+        year: int,
+        church_id: str | None = None,
+        file_name: str = "",
+        imported: bool = False,
+        note: str = "",
+    ) -> dict:
+        year = int(year)
+        church_id = str(church_id or self.setting("church_id", "209")).strip() or "209"
+        expected = ac_filename(year, church_id)
+        with self.tx() as conn:
+            row = conn.execute("SELECT * FROM fiscal_years WHERE year = ?", (year,)).fetchone()
+            if row:
+                conn.execute(
+                    """
+                    UPDATE fiscal_years
+                    SET church_id = ?,
+                        expected_file = ?,
+                        file_name = CASE WHEN ? != '' THEN ? ELSE file_name END,
+                        imported_at = CASE WHEN ? THEN ? ELSE imported_at END,
+                        note = CASE WHEN ? != '' THEN ? ELSE note END
+                    WHERE year = ?
+                    """,
+                    (
+                        church_id,
+                        expected,
+                        file_name,
+                        file_name,
+                        1 if imported else 0,
+                        now_iso() if imported else None,
+                        note,
+                        note,
+                        year,
+                    ),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO fiscal_years(year, church_id, file_name, expected_file, prepared_at, imported_at, note)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        year,
+                        church_id,
+                        file_name,
+                        expected,
+                        now_iso(),
+                        now_iso() if imported else None,
+                        note,
+                    ),
+                )
+        return self.get_year(year)
+
+    def get_year(self, year: int) -> dict | None:
+        with self.tx() as conn:
+            row = conn.execute("SELECT * FROM fiscal_years WHERE year = ?", (int(year),)).fetchone()
+        return dict(row) if row else None
+
+    def prepare_year(self, year: int) -> dict:
+        year = int(year)
+        if year < 1990 or year > 2100:
+            raise ValueError("ปีบัญชีต้องเป็น ค.ศ. เช่น 2026")
+        info = self.upsert_year(year)
+        self.save_settings({"fiscal_year": str(year)})
+        info["selected"] = True
+        info["next_rv"] = self.next_number("rv", year)
+        info["next_pv"] = self.next_number("pv", year)
+        info["created"] = self.voucher_count(year) == 0
+        return info
+
+    def select_year(self, year: int) -> dict:
+        info = self.get_year(int(year)) or self.prepare_year(year)
+        self.save_settings({"fiscal_year": str(int(year))})
+        return info
+
+    def list_years(self) -> list[dict]:
+        with self.tx() as conn:
+            self._sync_years(conn)
+            rows = conn.execute(
+                """
+                SELECT y.*,
+                       (SELECT COUNT(*) FROM vouchers v WHERE v.year = y.year AND v.kind = 'rv') AS rv_count,
+                       (SELECT COUNT(*) FROM vouchers v WHERE v.year = y.year AND v.kind = 'pv') AS pv_count
+                FROM fiscal_years y
+                ORDER BY y.year
+                """,
+            ).fetchall()
+        current = self.fiscal_year()
+        out = []
+        for row in rows:
+            item = dict(row)
+            item["active"] = int(row["year"]) == current
+            item["voucher_count"] = int(row["rv_count"] or 0) + int(row["pv_count"] or 0)
+            out.append(item)
+        return out
 
     def accounts(self, kind: str | None = None) -> list[sqlite3.Row]:
         with self.tx() as conn:
@@ -657,21 +803,24 @@ class Store:
             "liab_equity_total": liab_total + equity_total,
         }
 
-    def assets(self, direction: str | None = None):
+    def assets(self, direction: str | None = None, year: int | None = None):
+        year = self.fiscal_year() if year is None else year
+        sql = "SELECT * FROM assets WHERE (year = ? OR year IS NULL)"
+        params: list = [year]
+        if direction:
+            sql += " AND direction = ?"
+            params.append(direction)
+        sql += " ORDER BY txn_date, id"
         with self.tx() as conn:
-            if direction:
-                return conn.execute(
-                    "SELECT * FROM assets WHERE direction = ? ORDER BY txn_date, id",
-                    (direction,),
-                ).fetchall()
-            return conn.execute("SELECT * FROM assets ORDER BY txn_date, id").fetchall()
+            return conn.execute(sql, params).fetchall()
 
     def add_asset(self, data: dict) -> int:
+        year = int(data.get("year") or self.fiscal_year())
         with self.tx() as conn:
             cur = conn.execute(
                 """
-                INSERT INTO assets(direction, txn_date, description, qty, amount_satang, location, code, reason)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO assets(direction, txn_date, description, qty, amount_satang, location, code, reason, year)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     data["direction"],
@@ -682,6 +831,7 @@ class Store:
                     (data.get("location") or "").strip(),
                     (data.get("code") or "").strip(),
                     (data.get("reason") or "").strip(),
+                    year,
                 ),
             )
             return int(cur.lastrowid)
@@ -755,10 +905,14 @@ class Store:
                 conn.execute(f"DELETE FROM voucher_lines WHERE voucher_id IN ({q})", ids)
                 conn.execute(f"DELETE FROM voucher_transfers WHERE voucher_id IN ({q})", ids)
                 conn.execute("DELETE FROM vouchers WHERE year = ?", (year,))
-            conn.execute("DELETE FROM assets")
+            conn.execute("DELETE FROM assets WHERE year = ?", (year,))
             conn.execute("DELETE FROM budget_lines WHERE year = ?", (year,))
             conn.execute("DELETE FROM projects WHERE year = ?", (year,))
 
-    def voucher_count(self) -> int:
+    def voucher_count(self, year: int | None = None) -> int:
         with self.tx() as conn:
-            return int(conn.execute("SELECT COUNT(*) FROM vouchers").fetchone()[0])
+            if year is None:
+                return int(conn.execute("SELECT COUNT(*) FROM vouchers").fetchone()[0])
+            return int(
+                conn.execute("SELECT COUNT(*) FROM vouchers WHERE year = ?", (year,)).fetchone()[0]
+            )

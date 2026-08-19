@@ -41,7 +41,11 @@ a { color: var(--teal); text-decoration: none; }
   color: #efe6d2; padding: 8px 10px; border-radius: 8px;
 }
 .sidebar nav a:hover { background: rgba(255,255,255,0.08); }
-.side-meta { margin-top: 28px; font-size: 13px; opacity: 0.8; line-height: 1.5; }
+.side-meta { margin-top: 28px; font-size: 13px; opacity: 0.9; line-height: 1.5; }
+.year-switch { margin-bottom: 12px; }
+.year-switch label { font-size: 13px; }
+.year-switch select { background: #f7f1e4; color: #1d2a24; }
+tr.active-year td { background: #eef6f2; }
 .main { padding: 28px 32px 64px; }
 .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
 .topbar h1 { margin: 0 0 4px; font-size: 28px; }

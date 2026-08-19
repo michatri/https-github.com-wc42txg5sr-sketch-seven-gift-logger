@@ -90,6 +90,9 @@ def test_seed_xlsb_matches_excel_year_totals(tmp_path):
     assert totals["expense_total"] == 571097337
     assert store.next_number("rv", 2025) == 61
     assert store.next_number("pv", 2025) == 372
+    years = {row["year"]: row for row in store.list_years()}
+    assert 2025 in years
+    assert years[2025]["file_name"].endswith(".xlsb")
 
 
 def test_ensure_seed_imported_fills_empty_db(tmp_path):
