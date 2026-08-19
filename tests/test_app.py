@@ -232,3 +232,53 @@ def test_import_saintmark_snapshot(tmp_path: Path):
     assert conn.execute("SELECT COUNT(*) FROM donations").fetchone()[0] == 3129
     pieces = conn.execute("SELECT SUM(pieces) FROM donations").fetchone()[0]
     assert pieces == 53566
+
+
+def test_migrate_integer_pk_then_import(tmp_path: Path):
+    import db as dbmod
+
+    conn = dbmod.connect(tmp_path / "old.db")
+    conn.executescript(
+        """
+        CREATE TABLE donations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            pickup_date TEXT NOT NULL,
+            store_name TEXT NOT NULL,
+            branch_code TEXT NOT NULL,
+            pieces INTEGER NOT NULL,
+            weight_kg REAL NOT NULL DEFAULT 0,
+            baskets INTEGER,
+            contact_name TEXT,
+            position TEXT,
+            phone TEXT,
+            source TEXT NOT NULL DEFAULT 'web',
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE line_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            group_id TEXT NOT NULL UNIQUE,
+            message_type TEXT NOT NULL DEFAULT 'full',
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE donation_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            donation_id INTEGER NOT NULL,
+            storage_path TEXT NOT NULL
+        );
+        """
+    )
+    conn.execute(
+        """INSERT INTO donations(
+            date, pickup_date, store_name, branch_code, pieces, weight_kg, source, created_at
+        ) VALUES ('2026-01-01','2026-01-01','x','15005',1,0,'web','2026-01-01T00:00:00')"""
+    )
+    conn.commit()
+    dbmod.init_db(conn, "admin@saintmarkpathum.com", "admin123")
+    decl = conn.execute("PRAGMA table_info(donations)").fetchall()
+    id_type = next(r[2] for r in decl if r[1] == "id")
+    assert "TEXT" in id_type.upper()
+    stats = dbmod.import_snapshot(conn)
+    assert stats["donations"] == 3129
+    assert conn.execute("SELECT COUNT(*) FROM donations").fetchone()[0] == 3130

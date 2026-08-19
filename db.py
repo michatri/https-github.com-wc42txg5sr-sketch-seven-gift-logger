@@ -147,7 +147,112 @@ def connect(path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+        ).fetchone()
+        is not None
+    )
+
+
+def _column_decl(conn: sqlite3.Connection, table: str, column: str) -> str:
+    if not _table_exists(conn, table):
+        return ""
+    for row in conn.execute(f"PRAGMA table_info({table})"):
+        if row[1] == column:
+            return (row[2] or "").upper()
+    return ""
+
+
+def _is_integer_decl(decl: str) -> bool:
+    return "INT" in decl and "TEXT" not in decl
+
+
+def migrate_schema(conn: sqlite3.Connection) -> None:
+    """Upgrade INTEGER primary keys from the first deploy to TEXT UUIDs.
+
+    CREATE TABLE IF NOT EXISTS does not change an existing donations table, so
+    importing saintmarkpathum UUIDs into that INTEGER id raised datatype mismatch.
+    """
+    need_donations = _table_exists(conn, "donations") and _is_integer_decl(
+        _column_decl(conn, "donations", "id")
+    )
+    need_photos = _table_exists(conn, "donation_photos") and _is_integer_decl(
+        _column_decl(conn, "donation_photos", "donation_id")
+    )
+    need_line = _table_exists(conn, "line_groups") and _is_integer_decl(
+        _column_decl(conn, "line_groups", "id")
+    )
+    if not (need_donations or need_photos or need_line):
+        return
+
+    conn.execute("PRAGMA foreign_keys = OFF")
+    if need_donations:
+        conn.executescript(
+            """
+            CREATE TABLE donations_new (
+                id TEXT PRIMARY KEY,
+                date TEXT NOT NULL,
+                pickup_date TEXT NOT NULL,
+                store_name TEXT NOT NULL,
+                branch_code TEXT NOT NULL,
+                pieces INTEGER NOT NULL,
+                weight_kg REAL NOT NULL DEFAULT 0,
+                baskets INTEGER,
+                contact_name TEXT,
+                position TEXT,
+                phone TEXT,
+                source TEXT NOT NULL DEFAULT 'web',
+                created_at TEXT NOT NULL
+            );
+            INSERT INTO donations_new(
+                id, date, pickup_date, store_name, branch_code, pieces, weight_kg,
+                baskets, contact_name, position, phone, source, created_at
+            )
+            SELECT CAST(id AS TEXT), date, pickup_date, store_name, branch_code, pieces, weight_kg,
+                   baskets, contact_name, position, phone, source, created_at
+            FROM donations;
+            DROP TABLE donations;
+            ALTER TABLE donations_new RENAME TO donations;
+            """
+        )
+    if need_photos:
+        conn.executescript(
+            """
+            CREATE TABLE donation_photos_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                donation_id TEXT NOT NULL,
+                storage_path TEXT NOT NULL
+            );
+            INSERT INTO donation_photos_new(id, donation_id, storage_path)
+            SELECT id, CAST(donation_id AS TEXT), storage_path FROM donation_photos;
+            DROP TABLE donation_photos;
+            ALTER TABLE donation_photos_new RENAME TO donation_photos;
+            """
+        )
+    if need_line:
+        conn.executescript(
+            """
+            CREATE TABLE line_groups_new (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                group_id TEXT NOT NULL UNIQUE,
+                message_type TEXT NOT NULL DEFAULT 'full',
+                created_at TEXT NOT NULL
+            );
+            INSERT INTO line_groups_new(id, name, group_id, message_type, created_at)
+            SELECT CAST(id AS TEXT), name, group_id, message_type, created_at FROM line_groups;
+            DROP TABLE line_groups;
+            ALTER TABLE line_groups_new RENAME TO line_groups;
+            """
+        )
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.commit()
+
+
 def init_db(conn: sqlite3.Connection, admin_email: str, admin_password: str) -> None:
+    migrate_schema(conn)
     conn.executescript(SCHEMA)
     now = utc_now()
     for code, name in DEFAULT_BRANCHES:
@@ -217,6 +322,11 @@ def import_snapshot(conn: sqlite3.Connection, snapshot_path: Path | None = None)
             )
     donations = 0
     for r in data.get("donations") or []:
+        baskets = r.get("baskets")
+        try:
+            baskets_i = int(baskets) if baskets not in (None, "") else None
+        except (TypeError, ValueError):
+            baskets_i = None
         conn.execute(
             """
             INSERT OR IGNORE INTO donations(
@@ -225,17 +335,17 @@ def import_snapshot(conn: sqlite3.Connection, snapshot_path: Path | None = None)
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
-                r["id"],
+                str(r["id"]),
                 r.get("date") or r.get("pickup_date"),
                 r.get("pickup_date") or r.get("date"),
                 r.get("store_name") or "",
-                r.get("branch_code") or "",
+                str(r.get("branch_code") or ""),
                 int(r.get("pieces") or 0),
                 float(r.get("weight_kg") or 0),
-                r.get("baskets"),
-                r.get("contact_name"),
-                r.get("position"),
-                r.get("phone"),
+                baskets_i,
+                None if r.get("contact_name") in (None, "") else str(r.get("contact_name")),
+                None if r.get("position") in (None, "") else str(r.get("position")),
+                None if r.get("phone") in (None, "") else str(r.get("phone")),
                 r.get("source") or "web",
                 r.get("created_at") or now,
             ),
