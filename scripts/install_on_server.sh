@@ -15,6 +15,9 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
+if [[ "$APP_USER" == "root" && -d /home/aaa ]]; then
+  APP_USER="aaa"
+fi
 if ! id "$APP_USER" >/dev/null 2>&1; then
   echo "==> ไม่มี user ${APP_USER} จะรันด้วย root"
   APP_USER="root"
@@ -78,6 +81,7 @@ cat > "$ENV_FILE" <<EOF
 CHATRIACC_SECRET=${SECRET}
 CHATRIACC_HOST=${BIND_HOST}
 CHATRIACC_PORT=${BIND_PORT}
+CHATRIACC_BIND_80=1
 CHATRIACC_DB=${ROOT}/data/chatriacc.db
 CHATRIACC_SERVER_IP=${SERVER_IP}
 EOF
@@ -99,33 +103,23 @@ Environment=PYTHONPATH=${ROOT}
 Environment=PYTHONUNBUFFERED=1
 Environment=CHATRIACC_DB=${ROOT}/data/chatriacc.db
 Environment=CHATRIACC_PORT=${BIND_PORT}
+Environment=CHATRIACC_BIND_80=1
 EnvironmentFile=-/etc/chatriacc.env
 ExecStart=${ROOT}/scripts/chatriacc-run.sh
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=20
 SyslogIdentifier=chatriacc
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-open_port() {
-  local port="$1"
-  if command -v ufw >/dev/null 2>&1; then
-    ufw allow "${port}/tcp" >/dev/null 2>&1 || true
-  fi
-  if command -v iptables >/dev/null 2>&1; then
-    iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null \
-      || iptables -I INPUT -p tcp --dport "$port" -j ACCEPT || true
-  fi
-}
-
-echo "==> เปิดไฟร์วอลล์พอร์ต ${BIND_PORT}"
-open_port "$BIND_PORT"
-if command -v ufw >/dev/null 2>&1; then
-  ufw reload >/dev/null 2>&1 || true
-fi
+echo "==> เปิดไฟร์วอลล์พอร์ต 80 และ ${BIND_PORT} สำหรับ LAN"
+chmod +x "$ROOT/scripts/open_lan_ports.sh"
+CHATRIACC_LAN=192.168.10.0/24 "$ROOT/scripts/open_lan_ports.sh" || true
 
 if command -v fuser >/dev/null 2>&1; then
   fuser -k "${BIND_PORT}/tcp" 2>/dev/null || true
@@ -139,11 +133,19 @@ systemctl --no-pager --full status "$SERVICE_NAME" || true
 
 echo
 echo "==> ตรวจจากเครื่องเซิร์ฟเวอร์เอง"
-ss -lntp | grep -E ":${BIND_PORT}" || true
+ss -lntp | grep -E ":${BIND_PORT}|:80[[:space:]]" || true
+LOCAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 if curl -fsS --max-time 5 "http://127.0.0.1:${BIND_PORT}/health"; then
   echo
   echo "chatriACC บนพอร์ต ${BIND_PORT} ทำงานแล้ว"
-  echo "เปิดจากเครื่องใน LAN: http://${SERVER_IP}:${BIND_PORT}/"
+  echo "เปิดจากเครื่องใน LAN ด้วย http (อย่าใช้ https):"
+  echo "  http://${SERVER_IP}:${BIND_PORT}/"
+  echo "  http://${LOCAL_IP}:${BIND_PORT}/"
+  if curl -fsS --max-time 2 "http://127.0.0.1/health" >/dev/null 2>&1; then
+    echo "  http://${SERVER_IP}/"
+  else
+    echo "พอร์ต 80 ยังไม่เปิด — ต้องพิมพ์ :${BIND_PORT} ท้าย IP"
+  fi
 else
   echo
   echo "ERROR: ยังเรียก http://127.0.0.1:${BIND_PORT}/health ไม่ได้"

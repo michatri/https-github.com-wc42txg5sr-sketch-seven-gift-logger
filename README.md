@@ -37,9 +37,17 @@ chmod +x scripts/install_on_server.sh
 sudo ./scripts/install_on_server.sh
 ```
 
-เปิดจากเครื่องใน LAN: <http://192.168.10.65:8090/>
+เปิดจากเครื่องใน LAN: **http://192.168.10.65:8090/** (ต้องมี `http://` และ `:8090`)
 
-ถ้า `chatriacc.service` ขึ้น `Failed with result 'exit-code'` ให้ `git pull` แล้วรัน `sudo ./scripts/install_on_server.sh` อีกครั้ง อย่าคัดลอกไฟล์ `.service` เข้า systemd เอง
+พิมพ์แค่ `192.168.10.65` หรือใช้ `https://` จะขึ้นว่าใช้เวลาตอบกลับนานเกินไป
+
+ถ้า `chatriacc.service` ขึ้น `Failed with result 'exit-code'` หรือเข้าเว็บไม่ได้ ให้ `git pull` แล้วรัน:
+
+```bash
+chmod +x scripts/*.sh
+sudo ./scripts/install_on_server.sh
+sudo ./scripts/open_lan_ports.sh
+```
 
 หลังติดตั้งครั้งแรก ให้เข้า **นำเข้า AC25** แล้วเลือกใช้ไฟล์ `AC25-209` ที่มากับระบบ เพื่อดึงใบสำคัญปี 2025 ของวัดนักบุญมาร์โกเข้าฐานข้อมูล
 

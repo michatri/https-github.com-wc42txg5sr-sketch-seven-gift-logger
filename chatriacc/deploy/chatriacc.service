@@ -12,12 +12,15 @@ Environment=PYTHONPATH=/home/aaa/chatriacc
 Environment=PYTHONUNBUFFERED=1
 Environment=CHATRIACC_DB=/home/aaa/chatriacc/data/chatriacc.db
 Environment=CHATRIACC_PORT=8090
+Environment=CHATRIACC_BIND_80=1
 EnvironmentFile=-/etc/chatriacc.env
 ExecStart=/home/aaa/chatriacc/scripts/chatriacc-run.sh
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=20
 SyslogIdentifier=chatriacc
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target

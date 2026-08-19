@@ -10,14 +10,16 @@ def test_install_scripts_target_chatriacc_and_65():
     install = (root / "scripts" / "install_on_server.sh").read_text()
     unit = (root / "chatriacc" / "deploy" / "chatriacc.service").read_text()
     runner = (root / "scripts" / "chatriacc-run.sh").read_text()
+    ports = (root / "scripts" / "open_lan_ports.sh").read_text()
     assert "192.168.10.65" in install
     assert "chatriacc" in install
     assert "chatriacc-run.sh" in unit
     assert "/home/aaa/chatriacc" in unit
     assert "chatriacc.wsgi:app" in runner
     assert "8090" in unit
-    assert "0.0.0.0:80" not in runner
-    assert "0.0.0.0:80" not in install
+    assert "CAP_NET_BIND_SERVICE" in unit
+    assert "CHATRIACC_BIND_80" in runner
+    assert "192.168.10.0/24" in ports
 
 
 def test_app_name_constant():
