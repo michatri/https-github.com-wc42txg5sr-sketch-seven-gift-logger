@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ติดตั้ง chatriACC บน cameraserver ใน LAN
 # เครื่องที่เปิดเว็บลงเวลา/บัญชีสลิปได้จริงคือ 192.168.10.56 ไม่ใช่ .65
-# ssh aaa@192.168.10.56  แล้ว  sudo ./scripts/install_on_server.sh
+# รันจาก user aaa:  ssh aaa@192.168.10.56  แล้ว  sudo ./scripts/install_on_server.sh
+# ถ้า clone ไว้ที่ /root/chatriacc สคริปต์จะย้ายไป /home/aaa/chatriacc ให้เอง
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,6 +27,42 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
   APP_USER="root"
 fi
 APP_GROUP="$(id -gn "$APP_USER" 2>/dev/null || echo "$APP_USER")"
+APP_HOME="$(getent passwd "$APP_USER" | cut -d: -f6)"
+[[ -n "$APP_HOME" ]] || APP_HOME="/home/${APP_USER}"
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq python3 python3-venv python3-pip curl iproute2 rsync >/dev/null
+
+user_can_read_app() {
+  local dir="$1"
+  if [[ "$APP_USER" == "root" ]]; then
+    [[ -r "$dir/chatriacc/wsgi.py" ]] || return 1
+    return 0
+  fi
+  sudo -u "$APP_USER" test -r "$dir/chatriacc/wsgi.py" 2>/dev/null || return 1
+  return 0
+}
+
+# user aaa เข้า /root ไม่ได้ (drwx------) จึงห้ามรันบริการจาก /root/chatriacc
+if [[ "$APP_USER" != "root" ]]; then
+  TARGET="${APP_HOME}/chatriacc"
+  if [[ "$ROOT" == /root/* ]] || ! user_can_read_app "$ROOT"; then
+    echo "==> โค้ดอยู่ที่ $ROOT ซึ่ง user ${APP_USER} เข้าไม่ได้"
+    echo "==> ย้ายไป ${TARGET} เพื่อไม่ให้เจอ Permission denied ที่ .venv/bin/python"
+    mkdir -p "$TARGET"
+    if command -v rsync >/dev/null 2>&1; then
+      rsync -a --exclude '.venv' --exclude '__pycache__' --exclude '.pytest_cache' \
+        "$ROOT/" "$TARGET/"
+    else
+      rm -rf "$TARGET"
+      mkdir -p "$TARGET"
+      cp -a "$ROOT"/. "$TARGET/"
+      rm -rf "$TARGET/.venv"
+    fi
+    ROOT="$TARGET"
+  fi
+fi
 
 echo "==> โฟลเดอร์แอป: $ROOT"
 echo "==> รันบริการด้วย user: $APP_USER"
@@ -39,28 +76,27 @@ elif echo " ${REAL_IPS} " | grep -q " 192.168.10."; then
   echo "==> คำเตือน: ไม่มี 192.168.10.65 บนเครื่องนี้ — อย่าเปิด URL ที่ลงท้าย .65"
 fi
 
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq python3 python3-venv python3-pip curl iproute2 >/dev/null
-
 chmod +x "$ROOT/scripts/"*.sh
-
-if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
-  echo "==> สร้าง virtualenv"
-  python3 -m venv "$ROOT/.venv"
-fi
-# shellcheck disable=SC1091
-source "$ROOT/.venv/bin/activate"
-pip install -q --upgrade pip
-pip install -q -r "$ROOT/requirements.txt"
-
-if [[ ! -x "$ROOT/.venv/bin/gunicorn" ]]; then
-  echo "ERROR: ติดตั้ง gunicorn ไม่สำเร็จ"
-  exit 1
-fi
-
 mkdir -p "$ROOT/data" "$ROOT/data/uploads"
 chown -R "$APP_USER:$APP_GROUP" "$ROOT"
+
+echo "==> สร้าง virtualenv สำหรับ user ${APP_USER}"
+rm -rf "$ROOT/.venv"
+if [[ "$APP_USER" == "root" ]]; then
+  python3 -m venv "$ROOT/.venv"
+  "$ROOT/.venv/bin/pip" install -q --upgrade pip
+  "$ROOT/.venv/bin/pip" install -q -r "$ROOT/requirements.txt"
+else
+  sudo -u "$APP_USER" python3 -m venv "$ROOT/.venv"
+  sudo -u "$APP_USER" "$ROOT/.venv/bin/pip" install -q --upgrade pip
+  sudo -u "$APP_USER" "$ROOT/.venv/bin/pip" install -q -r "$ROOT/requirements.txt"
+fi
+
+if ! sudo -u "$APP_USER" test -x "$ROOT/.venv/bin/gunicorn"; then
+  echo "ERROR: ติดตั้ง gunicorn ไม่สำเร็จ ที่ $ROOT/.venv"
+  ls -l "$ROOT/.venv/bin" || true
+  exit 1
+fi
 
 port_busy() {
   local p="$1"
@@ -88,7 +124,9 @@ echo "==> จะเปิด chatriACC ที่พอร์ต ${BIND_PORT}"
 
 echo "==> ตรวจ import ก่อนสตาร์ท systemd"
 if ! sudo -u "$APP_USER" env PYTHONPATH="$ROOT" "$ROOT/.venv/bin/python" -c "from chatriacc.wsgi import app; print(app.name)"; then
-  echo "ERROR: import chatriacc ไม่ผ่าน — ดูข้อความด้านบน"
+  echo "ERROR: import chatriacc ไม่ผ่าน"
+  echo "user=${APP_USER} root=${ROOT}"
+  ls -ld /root "$ROOT" "$ROOT/.venv/bin/python" 2>&1 || true
   exit 1
 fi
 
@@ -156,13 +194,12 @@ LOCAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 if curl -fsS --max-time 5 "http://127.0.0.1:${BIND_PORT}/health"; then
   echo
   echo "chatriACC บนพอร์ต ${BIND_PORT} ทำงานแล้ว"
+  echo "โฟลเดอร์ที่ใช้จริง: $ROOT"
+  echo "ครั้งถัดไปให้อัปเดตที่นี่ ไม่ใช่ /root/chatriacc:"
+  echo "  cd $ROOT && git pull origin cursor/chatriacc-web-ebbb && sudo ./scripts/install_on_server.sh"
   echo "เปิดจากเครื่องใน LAN ด้วย http (อย่าใช้ https) และต้องใส่ :${BIND_PORT}"
-  echo "ใช้ IP จาก hostname -I ของเครื่องนี้ ไม่ใช่เลขที่จำไว้:"
   echo "  http://${LOCAL_IP}:${BIND_PORT}/"
-  echo "  http://${SERVER_IP}:${BIND_PORT}/"
-  echo "ถ้าลงเวลาที่ 192.168.10.56:8080 เข้าได้ ให้เปิด:"
   echo "  http://192.168.10.56:${BIND_PORT}/"
-  echo "URL ที่ลงท้าย .65 จะ timeout ถ้าเครื่องนี้ไม่มี IP นั้น"
 else
   echo
   echo "ERROR: ยังเรียก http://127.0.0.1:${BIND_PORT}/health ไม่ได้"

@@ -15,7 +15,10 @@ def test_install_scripts_target_chatriacc_and_65():
     assert "hostname -I" in install
     assert "chatriacc" in install
     assert "chatriacc-run.sh" in unit
-    assert "/home/aaa/chatriacc" in unit
+    assert "/home/aaa/chatriacc" in install
+    assert "/root/chatriacc" in install
+    assert "Permission denied" in install
+    assert "ย้ายไป" in install
     assert "chatriacc.wsgi:app" in runner
     assert "8100" in unit
     assert "CHATRIACC_PORT=8100" in unit

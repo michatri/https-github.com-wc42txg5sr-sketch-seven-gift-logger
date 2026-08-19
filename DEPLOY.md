@@ -20,6 +20,8 @@ Cloud agent SSH เข้าเครื่องนี้ไม่ได้ ต
 ssh aaa@192.168.10.56
 ```
 
+**อย่าใช้ `sudo git clone` และอย่าทำงานใน `/root`** เพราะ user `aaa` เข้า `/root` ไม่ได้ จะขึ้น `Permission denied` ที่ `.venv/bin/python`
+
 แล้ววางคำสั่งนี้:
 
 ```bash
@@ -34,7 +36,13 @@ chmod +x scripts/*.sh
 sudo ./scripts/install_on_server.sh
 ```
 
-ถ้าโฟลเดอร์ `~/chatriacc` มีอยู่แล้ว ไม่ต้อง clone ซ้ำ ใช้แค่ `cd ~/chatriacc` แล้ว `git pull` ตามด้วย `sudo ./scripts/install_on_server.sh`
+ถ้า clone ไว้ที่ `/root/chatriacc` แล้ว ให้รันชุดนี้แทน (สคริปต์จะย้ายไป `/home/aaa/chatriacc`):
+
+```bash
+sudo git -C /root/chatriacc pull origin cursor/chatriacc-web-ebbb
+sudo chmod +x /root/chatriacc/scripts/*.sh
+sudo /root/chatriacc/scripts/install_on_server.sh
+```
 
 ถ้าติดตั้งสำเร็จ บนเซิร์ฟเวอร์ต้องขึ้นว่าเรียก `/health` ได้ และจะพิมพ์ **IP จริง** จาก `hostname -I` จากนั้นเปิดจากคอมใน LAN:
 
@@ -72,6 +80,7 @@ sudo ./scripts/open_lan_ports.sh
 ข้อความ `Failed with result 'exit-code'` แปลว่าโปรเซส gunicorn ดับทันที สาเหตุที่พบบ่อย:
 
 - คัดลอก `chatriacc.service` ไป `/etc/systemd/system/` เอง ทำให้ชี้ `/root/chatriacc` ทั้งที่โค้ดอยู่ที่ `/home/aaa/chatriacc`
+- clone ด้วย root จนได้ `/root/chatriacc` แล้วรันบริการด้วย user `aaa` → `Permission denied` ที่ `.venv/bin/python` (aaa เข้า `/root` ไม่ได้) ชุดนี้จะย้ายไป `/home/aaa/chatriacc` ให้
 - ติดตั้งบนเครื่องผิด IP (เปิด `.65` ทั้งที่บริการอยู่ที่ `.56`)
 - พอร์ต 8100 ถูกบริการอื่นใช้แล้ว — สคริปต์จะย้ายไป 8110 หรือ 8120 ให้เอง
 

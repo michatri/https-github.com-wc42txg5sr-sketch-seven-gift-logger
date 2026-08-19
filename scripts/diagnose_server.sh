@@ -15,8 +15,9 @@ echo "== status =="; systemctl --no-pager --full status chatriacc || true
 echo "== journal =="; journalctl -u chatriacc -n 80 --no-pager || true
 echo "== listening =="; ss -lntp | grep -E ':8100|:8110|:8120|:8090|:8080|:8888|:80[[:space:]]' || true
 echo "== files ==";
-ls -ld "$ROOT" "$ROOT/scripts/chatriacc-run.sh" "$ROOT/.venv/bin/gunicorn" "$ROOT/.venv/bin/python" 2>&1 || true
-echo "== import ==";
+echo "สคริปต์นี้อยู่ที่ $ROOT — user บริการต้องอ่านโฟลเดอร์นี้ได้ (ห้ามชี้ /root ถ้า User=aaa)"
+ls -ld /root /home/aaa /home/aaa/chatriacc "$ROOT" "$ROOT/scripts/chatriacc-run.sh" "$ROOT/.venv/bin/gunicorn" "$ROOT/.venv/bin/python" 2>&1 || true
+echo "== import as current user ==";
 if [[ -x "$ROOT/.venv/bin/python" ]]; then
   PYTHONPATH="$ROOT" "$ROOT/.venv/bin/python" -c "from chatriacc.wsgi import app; print('ok', app.name)" || true
 else
