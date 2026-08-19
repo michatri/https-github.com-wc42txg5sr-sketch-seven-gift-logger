@@ -956,7 +956,7 @@ async function renderLine() {
     list.innerHTML = data.groups
       .map(
         (g) => `<div class="card group-card flex-between">
-        <div><strong>${g.name}</strong><p class="muted">${g.group_id} · ${g.message_type === "short" ? "ข้อความย่อ (รับของ)" : "ข้อความเต็ม + รูป"}</p></div>
+        <div><strong>${g.name}</strong><p class="muted">${g.group_id} · ${g.message_type === "full" ? "ข้อความเต็ม + รูป" : "ข้อความย่อ (รับของ)"}</p></div>
         <button class="btn btn-ghost btn-sm" data-del="${g.id}">ลบ</button>
       </div>`
       )
@@ -979,8 +979,9 @@ async function renderLine() {
       <div class="field"><label>Group ID</label><input class="input" id="ln-id" placeholder="เช่น C1234567890abcdef..." /></div>
       <div class="field"><label>รูปแบบข้อความ *</label>
         <select class="select" id="ln-type">
+          <option value="summary">ข้อความย่อ - รับของ (รหัสสาขา, ชื่อสาขา, จำนวนชิ้น)</option>
           <option value="full">ข้อความเต็ม + รูปภาพ (วันที่, รหัส, ชื่อ, จำนวน, ผู้ติดต่อ, เบอร์โทร)</option>
-          <option value="short">ข้อความย่อ - รับของ (รหัสสาขา, ชื่อสาขา, จำนวนชิ้น)</option>
+          <option value="short">ข้อความย่อ - รับของ (รูปแบบ short)</option>
         </select>
       </div>
       <div class="flex-between"><button class="btn btn-outline" id="ln-cancel">ยกเลิก</button><button class="btn" id="ln-save">บันทึก</button></div>

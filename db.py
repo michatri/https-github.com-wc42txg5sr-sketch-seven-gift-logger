@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS branch_contacts (
 );
 
 CREATE TABLE IF NOT EXISTS donations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     date TEXT NOT NULL,
     pickup_date TEXT NOT NULL,
     store_name TEXT NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS donations (
 
 CREATE TABLE IF NOT EXISTS donation_photos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    donation_id INTEGER NOT NULL,
+    donation_id TEXT NOT NULL,
     storage_path TEXT NOT NULL,
     FOREIGN KEY (donation_id) REFERENCES donations(id) ON DELETE CASCADE
 );
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS branch_group_members (
 );
 
 CREATE TABLE IF NOT EXISTS line_groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     group_id TEXT NOT NULL UNIQUE,
     message_type TEXT NOT NULL DEFAULT 'full',
@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
 
 CREATE INDEX IF NOT EXISTS idx_donations_pickup ON donations(pickup_date, branch_code);
 CREATE INDEX IF NOT EXISTS idx_donations_branch ON donations(branch_code);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_donation_photos_path ON donation_photos(storage_path);
 """
 
 # สาขาตั้งต้นจากระบบ saintmarkpathum.com
@@ -125,6 +126,11 @@ DEFAULT_BRANCHES = [
     ("16300", "จันทร์กะพ้อ"),
     ("17601", "เทศบาล 10 สามโคก จุด 2"),
     ("18992", "เทศบาล 10 สามโคก จุด 3"),
+    ("23529", "ชุมชนบางกระดีสายใน"),
+    ("11681", "ชุมชนบางกุฎีทอง(ติวานนท์)"),
+    ("4534", "ตลาดฐานเพชรปทุม"),
+    ("7442", "ตลาดฐานเพชรปทุม จุด 2"),
+    ("15503", "อุตสาหกรรมบางกระดี2"),
 ]
 
 
@@ -159,3 +165,139 @@ def init_db(conn: sqlite3.Connection, admin_email: str, admin_password: str) -> 
             (admin_email.lower().strip(), generate_password_hash(admin_password), now),
         )
     conn.commit()
+
+
+def default_snapshot_path() -> Path:
+    return Path(__file__).resolve().parent / "data" / "import" / "snapshot.json"
+
+
+def import_snapshot(conn: sqlite3.Connection, snapshot_path: Path | None = None) -> dict[str, int]:
+    """Load saintmarkpathum.com dump into an empty (or partial) local database."""
+    path = snapshot_path or default_snapshot_path()
+    if not path.exists():
+        return {"donations": 0, "line_groups": 0, "contacts": 0, "photos": 0}
+    import json
+
+    data = json.loads(path.read_text())
+    now = utc_now()
+    extra = 0
+    for b in data.get("extra_branches") or []:
+        conn.execute(
+            "INSERT OR IGNORE INTO branches(code, name, created_at) VALUES (?,?,?)",
+            (b["code"], b["name"], now),
+        )
+        extra += 1
+    contacts = 0
+    for c in data.get("branch_contacts") or []:
+        conn.execute(
+            """
+            INSERT INTO branch_contacts(branch_code, branch_name, contact_name, phone, position, updated_at)
+            VALUES (?,?,?,?,?,?)
+            ON CONFLICT(branch_code) DO UPDATE SET
+                branch_name=excluded.branch_name,
+                contact_name=excluded.contact_name,
+                phone=excluded.phone,
+                position=excluded.position,
+                updated_at=excluded.updated_at
+            """,
+            (
+                c.get("branch_code"),
+                c.get("branch_name"),
+                c.get("contact_name"),
+                c.get("phone"),
+                c.get("position"),
+                c.get("updated_at") or now,
+            ),
+        )
+        contacts += 1
+        if c.get("branch_code") and c.get("branch_name"):
+            conn.execute(
+                "INSERT OR IGNORE INTO branches(code, name, created_at) VALUES (?,?,?)",
+                (c["branch_code"], c["branch_name"], now),
+            )
+    donations = 0
+    for r in data.get("donations") or []:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO donations(
+                id, date, pickup_date, store_name, branch_code, pieces, weight_kg,
+                baskets, contact_name, position, phone, source, created_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                r["id"],
+                r.get("date") or r.get("pickup_date"),
+                r.get("pickup_date") or r.get("date"),
+                r.get("store_name") or "",
+                r.get("branch_code") or "",
+                int(r.get("pieces") or 0),
+                float(r.get("weight_kg") or 0),
+                r.get("baskets"),
+                r.get("contact_name"),
+                r.get("position"),
+                r.get("phone"),
+                r.get("source") or "web",
+                r.get("created_at") or now,
+            ),
+        )
+        donations += 1
+    line_groups = 0
+    for g in data.get("line_groups") or []:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO line_groups(id, name, group_id, message_type, created_at)
+            VALUES (?,?,?,?,?)
+            """,
+            (
+                g["id"],
+                g.get("name") or "",
+                g.get("group_id") or "",
+                g.get("message_type") or "summary",
+                g.get("created_at") or now,
+            ),
+        )
+        line_groups += 1
+    photos = 0
+    for rel in data.get("photos") or []:
+        donation_id = str(rel).split("/", 1)[0]
+        if not conn.execute("SELECT 1 FROM donations WHERE id=?", (donation_id,)).fetchone():
+            continue
+        conn.execute(
+            "INSERT OR IGNORE INTO donation_photos(donation_id, storage_path) VALUES (?,?)",
+            (donation_id, rel),
+        )
+        photos += 1
+    conn.commit()
+    return {
+        "donations": donations,
+        "line_groups": line_groups,
+        "contacts": contacts,
+        "photos": photos,
+        "extra_branches": extra,
+    }
+
+
+def download_imported_photos(snapshot_path: Path | None, photos_dir: Path) -> int:
+    """Download donation photos from the public saintmarkpathum storage."""
+    import json
+    import urllib.request
+
+    path = snapshot_path or default_snapshot_path()
+    if not path.exists():
+        return 0
+    data = json.loads(path.read_text())
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    base = "https://uzunhlbxwpqzdquikoiu.supabase.co/storage/v1/object/public/donation-photos/"
+    ok = 0
+    for rel in data.get("photos") or []:
+        dest = photos_dir / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists() and dest.stat().st_size > 0:
+            ok += 1
+            continue
+        try:
+            urllib.request.urlretrieve(base + rel, dest)
+            ok += 1
+        except Exception:
+            continue
+    return ok

@@ -21,7 +21,7 @@ def build_messages(payload: dict[str, Any], message_type: str, photo_urls: list[
     position = payload.get("position") or ""
     phone = payload.get("phone") or ""
 
-    if message_type == "short":
+    if message_type in ("short", "summary"):
         text = f"รับของ\nรหัสสาขา: {code} {name} - {pieces} ชิ้น"
     else:
         lines = [
@@ -41,7 +41,7 @@ def build_messages(payload: dict[str, Any], message_type: str, photo_urls: list[
         text = "\n".join(lines)
 
     messages: list[dict[str, Any]] = [{"type": "text", "text": text}]
-    if message_type != "short":
+    if message_type not in ("short", "summary"):
         for url in photo_urls[:5]:
             messages.append(
                 {

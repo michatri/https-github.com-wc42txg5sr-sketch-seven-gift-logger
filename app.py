@@ -4,6 +4,7 @@ import io
 import os
 import secrets
 import sqlite3
+import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
@@ -108,7 +109,11 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             conn.close()
 
     with app.app_context():
-        dbmod.init_db(get_db(), app.config["ADMIN_EMAIL"], app.config["ADMIN_PASSWORD"])
+        conn = get_db()
+        dbmod.init_db(conn, app.config["ADMIN_EMAIL"], app.config["ADMIN_PASSWORD"])
+        skip_import = bool(app.config.get("TESTING") or os.environ.get("GIFT_SKIP_IMPORT"))
+        if not skip_import and conn.execute("SELECT COUNT(*) FROM donations").fetchone()[0] == 0:
+            dbmod.import_snapshot(conn)
 
     def login_required(fn: Callable) -> Callable:
         @wraps(fn)
@@ -212,7 +217,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             for g in groups
         ]
 
-    def save_photos(donation_id: int, files: list[Any]) -> list[str]:
+    def save_photos(donation_id: str, files: list[Any]) -> list[str]:
         saved: list[str] = []
         dest = Path(app.config["PHOTOS_DIR"]) / str(donation_id)
         dest.mkdir(parents=True, exist_ok=True)
@@ -256,15 +261,17 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         except (TypeError, ValueError):
             baskets_i = None
         now = utc_now()
+        donation_id = str(uuid.uuid4())
         conn = get_db()
-        cur = conn.execute(
+        conn.execute(
             """
             INSERT INTO donations(
-                date, pickup_date, store_name, branch_code, pieces, weight_kg,
+                id, date, pickup_date, store_name, branch_code, pieces, weight_kg,
                 baskets, contact_name, position, phone, source, created_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
+                donation_id,
                 date,
                 date,
                 branch["name"],
@@ -280,7 +287,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             ),
         )
         conn.commit()
-        row = conn.execute("SELECT * FROM donations WHERE id=?", (cur.lastrowid,)).fetchone()
+        row = conn.execute("SELECT * FROM donations WHERE id=?", (donation_id,)).fetchone()
         return row_donation(row)
 
     def public_photo_urls(paths: list[str]) -> list[str]:
@@ -584,9 +591,9 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         notify(rec, photos)
         return jsonify({"ok": True, "donation": rec, "photos": photos})
 
-    @app.delete("/api/donations/<int:donation_id>")
+    @app.delete("/api/donations/<donation_id>")
     @login_required
-    def api_delete_donation(donation_id: int):
+    def api_delete_donation(donation_id: str):
         conn = get_db()
         conn.execute("DELETE FROM donation_photos WHERE donation_id=?", (donation_id,))
         conn.execute("DELETE FROM donations WHERE id=?", (donation_id,))
@@ -670,23 +677,23 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         name = (body.get("name") or "").strip()
         group_id = (body.get("group_id") or body.get("groupId") or "").strip()
         message_type = body.get("message_type") or body.get("messageType") or "full"
-        if message_type not in ("full", "short"):
+        if message_type not in ("full", "short", "summary"):
             message_type = "full"
         if not name or not group_id:
             return jsonify({"error": "กรุณากรอกข้อมูลให้ครบ"}), 400
         try:
             get_db().execute(
-                "INSERT INTO line_groups(name, group_id, message_type, created_at) VALUES (?,?,?,?)",
-                (name, group_id, message_type, utc_now()),
+                "INSERT INTO line_groups(id, name, group_id, message_type, created_at) VALUES (?,?,?,?,?)",
+                (str(uuid.uuid4()), name, group_id, message_type, utc_now()),
             )
             get_db().commit()
         except sqlite3.IntegrityError:
             return jsonify({"error": "Group ID นี้มีอยู่แล้ว"}), 400
         return jsonify({"ok": True})
 
-    @app.delete("/api/line-groups/<int:lid>")
+    @app.delete("/api/line-groups/<lid>")
     @login_required
-    def api_delete_line_group(lid: int):
+    def api_delete_line_group(lid: str):
         get_db().execute("DELETE FROM line_groups WHERE id=?", (lid,))
         get_db().commit()
         return jsonify({"ok": True})
@@ -704,8 +711,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             if conn.execute("SELECT 1 FROM line_groups WHERE group_id=?", (gid,)).fetchone():
                 continue
             conn.execute(
-                "INSERT INTO line_groups(name, group_id, message_type, created_at) VALUES (?,?,?,?)",
-                (f"LINE {gid[-6:]}", gid, "full", utc_now()),
+                "INSERT INTO line_groups(id, name, group_id, message_type, created_at) VALUES (?,?,?,?,?)",
+                (str(uuid.uuid4()), f"LINE {gid[-6:]}", gid, "summary", utc_now()),
             )
         conn.commit()
         return jsonify({"ok": True})

@@ -91,6 +91,18 @@ if ! sudo -u "$APP_USER" test -x "$ROOT/.venv/bin/gunicorn"; then
   exit 1
 fi
 
+echo "==> นำเข้าข้อมูลจาก saintmarkpathum.com (รายการ + รูป)"
+mkdir -p "$ROOT/data/photos"
+if [[ "$APP_USER" == "root" ]]; then
+  "$ROOT/.venv/bin/python" "$ROOT/scripts/import_production.py" \
+    --db "$ROOT/data/gift_logger.db" --photos-dir "$ROOT/data/photos"
+else
+  chown -R "$APP_USER:$APP_GROUP" "$ROOT/data"
+  sudo -u "$APP_USER" "$ROOT/.venv/bin/python" "$ROOT/scripts/import_production.py" \
+    --db "$ROOT/data/gift_logger.db" --photos-dir "$ROOT/data/photos"
+fi
+chown -R "$APP_USER:$APP_GROUP" "$ROOT/data"
+
 port_busy() {
   local p="$1"
   ss -lnt 2>/dev/null | awk '{print $4}' | grep -qE ":${p}$"

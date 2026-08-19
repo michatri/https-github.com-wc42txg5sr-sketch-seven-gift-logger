@@ -210,3 +210,25 @@ def test_photo_upload(client, tmp_path):
     assert photos
     got = client.get(f"/photos/{photos[0]}")
     assert got.status_code == 200
+
+
+def test_import_saintmark_snapshot(tmp_path: Path):
+    import db as dbmod
+
+    conn = dbmod.connect(tmp_path / "import.db")
+    dbmod.init_db(conn, "admin@saintmarkpathum.com", "admin123")
+    stats = dbmod.import_snapshot(conn)
+    assert stats["donations"] == 3129
+    assert conn.execute("SELECT COUNT(*) FROM donations").fetchone()[0] == 3129
+    assert conn.execute("SELECT COUNT(*) FROM line_groups").fetchone()[0] == 5
+    assert conn.execute("SELECT COUNT(*) FROM branches").fetchone()[0] >= 43
+    row = conn.execute(
+        "SELECT pieces, store_name FROM donations WHERE branch_code=? ORDER BY created_at LIMIT 1",
+        ("11433",),
+    ).fetchone()
+    assert row["store_name"] == "STUDENT CENTER ม.รังสิต"
+    # second import must not duplicate
+    dbmod.import_snapshot(conn)
+    assert conn.execute("SELECT COUNT(*) FROM donations").fetchone()[0] == 3129
+    pieces = conn.execute("SELECT SUM(pieces) FROM donations").fetchone()[0]
+    assert pieces == 53566
