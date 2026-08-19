@@ -49,7 +49,7 @@ def create_app(db_path: str | Path | None = None) -> Flask:
 
     @app.get("/health")
     def health():
-        return {"ok": True, "app": "chatriACC"}
+        return {"ok": True, "app": "chatriACC", "port": DEFAULT_PORT}
 
     @app.get("/")
     def dashboard():

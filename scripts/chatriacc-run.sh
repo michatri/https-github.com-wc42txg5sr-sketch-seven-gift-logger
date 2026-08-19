@@ -8,12 +8,20 @@ export PYTHONPATH="$ROOT"
 export PYTHONUNBUFFERED=1
 
 HOST="${CHATRIACC_HOST:-0.0.0.0}"
-PORT="${CHATRIACC_PORT:-8100}"
+REQUESTED_PORT="${CHATRIACC_PORT:-8100}"
 export CHATRIACC_DB="${CHATRIACC_DB:-$ROOT/data/chatriacc.db}"
 
 mkdir -p "$ROOT/data" "$ROOT/data/uploads"
 
 log() { echo "chatriACC: $*" >&2; }
+
+# พอร์ตของบริการอื่นบน cameraserver — ห้ามแย่ง
+never_steal() {
+  case "$1" in
+    22|80|443|3306|8080|8090|8888) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 port_busy() {
   local p="$1"
@@ -26,12 +34,33 @@ port_busy() {
   return 1
 }
 
-if port_busy "$PORT"; then
-  log "พอร์ต ${PORT} ถูกใช้แล้ว"
-  ss -lntp 2>/dev/null | grep -E ":${PORT}([[:space:]]|$)" || true
-  log "พอร์ต ${PORT} ชนกับบริการอื่น — ตั้ง CHATRIACC_PORT=8110 ใน /etc/chatriacc.env"
+pick_port() {
+  local p seen=" "
+  for p in "${REQUESTED_PORT}" 8100 8110 8120; do
+    [[ "${seen}" == *" ${p} "* ]] && continue
+    seen+="${p} "
+    if never_steal "$p"; then
+      log "ข้ามพอร์ต ${p} เพราะเป็นของบริการอื่น (SSH/เว็บ/บัญชีสลิป/Tomcat)"
+      continue
+    fi
+    if port_busy "$p"; then
+      log "พอร์ต ${p} ถูกใช้แล้ว"
+      ss -lntp 2>/dev/null | grep -E ":${p}([[:space:]]|$)" >&2 || true
+      continue
+    fi
+    echo "$p"
+    return 0
+  done
+  return 1
+}
+
+PORT="$(pick_port || true)"
+if [[ -z "${PORT}" ]]; then
+  log "ERROR: พอร์ต 8100/8110/8120 ถูกใช้หมดแล้ว"
+  ss -lntp 2>/dev/null || true
   exit 1
 fi
+export CHATRIACC_PORT="$PORT"
 
 VENV="$ROOT/.venv"
 PY="$VENV/bin/python"
@@ -58,14 +87,11 @@ if ! "$PY" -c "from chatriacc.wsgi import app; print('import-ok', app.name)"; th
   exit 1
 fi
 
-BINDS=(--bind "${HOST}:${PORT}")
-log "เปิดเฉพาะพอร์ต ${PORT} สำหรับ chatriACC — http://IP:${PORT}/"
-
-log "gunicorn ${BINDS[*]} db=${CHATRIACC_DB}"
+log "เปิด http://0.0.0.0:${PORT}/  (ใช้ IP จริงจาก hostname -I ไม่ใช่แค่ .65)"
 exec "$GUNI" \
   --chdir "$ROOT" \
   --workers 2 \
-  "${BINDS[@]}" \
+  --bind "${HOST}:${PORT}" \
   --access-logfile - \
   --error-logfile - \
   chatriacc.wsgi:app

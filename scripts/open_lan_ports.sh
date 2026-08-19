@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# เปิดไฟร์วอลล์ให้เครื่องใน LAN เข้า chatriACC ที่พอร์ต 8100 (สำรอง 8110)
+# เปิดไฟร์วอลล์ให้เครื่องใน LAN เข้า chatriACC ที่พอร์ต 8100 (สำรอง 8110, 8120)
 # Usage: sudo ./scripts/open_lan_ports.sh [port]
 set -euo pipefail
 
@@ -10,19 +10,26 @@ fi
 
 LAN="${CHATRIACC_LAN:-192.168.10.0/24}"
 MAIN_PORT="${1:-8100}"
-PORTS=("${MAIN_PORT}" 8110)
+PORTS=("${MAIN_PORT}" 8110 8120)
 
 open_port() {
   local port="$1"
   if command -v ufw >/dev/null 2>&1; then
-    ufw allow "${port}/tcp" >/dev/null 2>&1 || true
+    ufw allow "${port}/tcp" comment "chatriACC" >/dev/null 2>&1 || true
     ufw allow from "$LAN" to any port "$port" proto tcp >/dev/null 2>&1 || true
+  fi
+  if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    firewall-cmd --permanent --add-port="${port}/tcp" >/dev/null 2>&1 || true
   fi
   if command -v iptables >/dev/null 2>&1; then
     iptables -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null \
       || iptables -I INPUT -p tcp --dport "$port" -j ACCEPT || true
     iptables -C INPUT -p tcp -s "$LAN" --dport "$port" -j ACCEPT 2>/dev/null \
       || iptables -I INPUT -p tcp -s "$LAN" --dport "$port" -j ACCEPT || true
+  fi
+  if command -v iptables-legacy >/dev/null 2>&1; then
+    iptables-legacy -C INPUT -p tcp --dport "$port" -j ACCEPT 2>/dev/null \
+      || iptables-legacy -I INPUT -p tcp --dport "$port" -j ACCEPT || true
   fi
 }
 
@@ -32,12 +39,21 @@ for p in "${PORTS[@]}"; do
   echo "    tcp/${p}"
 done
 
+if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+  firewall-cmd --reload >/dev/null 2>&1 || true
+fi
 if command -v ufw >/dev/null 2>&1; then
   ufw reload >/dev/null 2>&1 || true
   ufw status verbose || true
 fi
+if command -v netfilter-persistent >/dev/null 2>&1; then
+  netfilter-persistent save >/dev/null 2>&1 || true
+fi
 
+REAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
+echo "IP จริงของเครื่องนี้: $(hostname -I 2>/dev/null || true)"
 echo "จากเครื่องอื่นใน LAN ให้เปิด:"
-echo "  http://$(hostname -I 2>/dev/null | awk '{print $1}'):${MAIN_PORT}/"
+echo "  http://${REAL_IP}:${MAIN_PORT}/"
+echo "งานลงเวลา/บัญชีสลิปที่เข้าได้มาก่อนอยู่ที่ 192.168.10.56 ไม่ใช่ .65"
 echo "ใช้ http เท่านั้น อย่าพิมพ์ https และต้องใส่ :${MAIN_PORT}"

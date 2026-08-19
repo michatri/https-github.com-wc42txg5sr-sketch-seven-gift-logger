@@ -11,7 +11,8 @@ def test_install_scripts_target_chatriacc_and_65():
     unit = (root / "chatriacc" / "deploy" / "chatriacc.service").read_text()
     runner = (root / "scripts" / "chatriacc-run.sh").read_text()
     ports = (root / "scripts" / "open_lan_ports.sh").read_text()
-    assert "192.168.10.65" in install
+    assert "192.168.10.56" in install
+    assert "hostname -I" in install
     assert "chatriacc" in install
     assert "chatriacc-run.sh" in unit
     assert "/home/aaa/chatriacc" in unit
@@ -20,8 +21,10 @@ def test_install_scripts_target_chatriacc_and_65():
     assert "CHATRIACC_PORT=8100" in unit
     assert "CHATRIACC_PORT:-8100" in runner
     assert "CHATRIACC_BIND_80=0" in install
+    assert "8090" in runner
     assert "8100" in ports
     assert "192.168.10.0/24" in ports
+    assert "firewall-cmd" in ports
 
 
 def test_app_name_constant():

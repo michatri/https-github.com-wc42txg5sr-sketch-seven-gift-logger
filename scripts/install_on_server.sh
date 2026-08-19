@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# ติดตั้ง chatriACC บนเซิร์ฟเวอร์ LAN 192.168.10.65
-# ssh aaa@192.168.10.65  แล้ว  sudo ./scripts/install_on_server.sh
+# ติดตั้ง chatriACC บน cameraserver ใน LAN
+# เครื่องที่เปิดเว็บลงเวลา/บัญชีสลิปได้จริงคือ 192.168.10.56 ไม่ใช่ .65
+# ssh aaa@192.168.10.56  แล้ว  sudo ./scripts/install_on_server.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE_NAME="chatriacc"
 UNIT_DST="/etc/systemd/system/${SERVICE_NAME}.service"
 BIND_HOST="0.0.0.0"
-SERVER_IP="${CHATRIACC_SERVER_IP:-192.168.10.65}"
+REAL_IPS="$(hostname -I 2>/dev/null || true)"
+REAL_IP="$(echo "$REAL_IPS" | awk '{print $1}')"
+SERVER_IP="${CHATRIACC_SERVER_IP:-${REAL_IP:-192.168.10.56}}"
 APP_USER="${SUDO_USER:-${USER}}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -26,6 +29,15 @@ APP_GROUP="$(id -gn "$APP_USER" 2>/dev/null || echo "$APP_USER")"
 
 echo "==> โฟลเดอร์แอป: $ROOT"
 echo "==> รันบริการด้วย user: $APP_USER"
+echo "==> IP จริงของเครื่องนี้: ${REAL_IPS:-unknown}"
+if echo " ${REAL_IPS} " | grep -q " 192.168.10.56 "; then
+  echo "==> นี่คือ cameraserver (.56) — เปิดเว็บที่ http://192.168.10.56:8100/"
+fi
+if echo " ${REAL_IPS} " | grep -q " 192.168.10.65 "; then
+  echo "==> เครื่องนี้มี IP .65 ตามที่ขอไว้"
+elif echo " ${REAL_IPS} " | grep -q " 192.168.10."; then
+  echo "==> คำเตือน: ไม่มี 192.168.10.65 บนเครื่องนี้ — อย่าเปิด URL ที่ลงท้าย .65"
+fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -55,16 +67,24 @@ port_busy() {
   ss -lnt 2>/dev/null | awk '{print $4}' | grep -qE ":${p}$"
 }
 
-BIND_PORT="${CHATRIACC_PORT:-8100}"
-if port_busy "$BIND_PORT"; then
-  echo "==> พอร์ต ${BIND_PORT} ถูกใช้แล้ว จะใช้ 8110 แทน"
-  BIND_PORT="8110"
-fi
-if port_busy "$BIND_PORT"; then
-  echo "ERROR: พอร์ต ${BIND_PORT} ก็ถูกใช้แล้วเช่นกัน"
-  ss -lntp | grep -E ':8100|:8110|:8090|:80[[:space:]]' || true
+BIND_PORT=""
+for candidate in "${CHATRIACC_PORT:-8100}" 8100 8110 8120; do
+  case "$candidate" in
+    22|80|443|3306|8080|8090|8888) continue ;;
+  esac
+  if port_busy "$candidate"; then
+    echo "==> พอร์ต ${candidate} ถูกใช้แล้ว"
+    continue
+  fi
+  BIND_PORT="$candidate"
+  break
+done
+if [[ -z "$BIND_PORT" ]]; then
+  echo "ERROR: พอร์ต 8100/8110/8120 ถูกใช้หมดแล้ว"
+  ss -lntp | grep -E ':8100|:8110|:8120|:8090|:8080|:8888|:80[[:space:]]' || true
   exit 1
 fi
+echo "==> จะเปิด chatriACC ที่พอร์ต ${BIND_PORT}"
 
 echo "==> ตรวจ import ก่อนสตาร์ท systemd"
 if ! sudo -u "$APP_USER" env PYTHONPATH="$ROOT" "$ROOT/.venv/bin/python" -c "from chatriacc.wsgi import app; print(app.name)"; then
@@ -110,8 +130,6 @@ Restart=on-failure
 RestartSec=3
 TimeoutStopSec=20
 SyslogIdentifier=chatriacc
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target
@@ -138,9 +156,13 @@ LOCAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 if curl -fsS --max-time 5 "http://127.0.0.1:${BIND_PORT}/health"; then
   echo
   echo "chatriACC บนพอร์ต ${BIND_PORT} ทำงานแล้ว"
-  echo "เปิดจากเครื่องใน LAN ด้วย http (อย่าใช้ https):"
-  echo "  http://${SERVER_IP}:${BIND_PORT}/"
+  echo "เปิดจากเครื่องใน LAN ด้วย http (อย่าใช้ https) และต้องใส่ :${BIND_PORT}"
+  echo "ใช้ IP จาก hostname -I ของเครื่องนี้ ไม่ใช่เลขที่จำไว้:"
   echo "  http://${LOCAL_IP}:${BIND_PORT}/"
+  echo "  http://${SERVER_IP}:${BIND_PORT}/"
+  echo "ถ้าลงเวลาที่ 192.168.10.56:8080 เข้าได้ ให้เปิด:"
+  echo "  http://192.168.10.56:${BIND_PORT}/"
+  echo "URL ที่ลงท้าย .65 จะ timeout ถ้าเครื่องนี้ไม่มี IP นั้น"
 else
   echo
   echo "ERROR: ยังเรียก http://127.0.0.1:${BIND_PORT}/health ไม่ได้"

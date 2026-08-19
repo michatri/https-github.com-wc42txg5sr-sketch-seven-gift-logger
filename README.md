@@ -21,14 +21,16 @@
 
 จำนวนเงินเก็บเป็นสตางค์ใน SQLite เพื่อไม่ให้ทศนิยมคลาดเคลื่อน
 
-## ติดตั้งบนเซิร์ฟเวอร์ 192.168.10.65
+## ติดตั้งบน cameraserver 192.168.10.56
 
 ดูขั้นตอนเต็มใน [`DEPLOY.md`](DEPLOY.md)
+
+เครื่องที่เปิดเว็บลงเวลาได้จริงคือ **192.168.10.56** ไม่ใช่ `.65` (ตัวเลขสลับกันแล้ว timeout)
 
 จากเครื่องใน LAN:
 
 ```bash
-ssh aaa@192.168.10.65
+ssh aaa@192.168.10.56
 cd ~
 git clone -b cursor/chatriacc-web-ebbb \
   https://github.com/michatri/https-github.com-wc42txg5sr-sketch-seven-gift-logger.git chatriacc
@@ -37,9 +39,9 @@ chmod +x scripts/install_on_server.sh
 sudo ./scripts/install_on_server.sh
 ```
 
-เปิดจากเครื่องใน LAN: **http://192.168.10.65:8100/** (ต้องมี `http://` และ `:8100`)
+เปิดจากเครื่องใน LAN: **http://192.168.10.56:8100/** (ต้องมี `http://` และ `:8100`)
 
-พิมพ์แค่ `192.168.10.65` หรือใช้ `https://` จะขึ้นว่าใช้เวลาตอบกลับนานเกินไป
+พิมพ์ `.65` หรือใช้ `https://` จะขึ้นว่าใช้เวลาตอบกลับนานเกินไป
 
 ถ้า `chatriacc.service` ขึ้น `Failed with result 'exit-code'` หรือเข้าเว็บไม่ได้ ให้ `git pull` แล้วรัน:
 
@@ -82,4 +84,4 @@ python -m pytest -q
 - `chatriacc/db.py` — ใบสำคัญ ผังบัญชี งบ และครุภัณฑ์
 - `chatriacc/importer.py` — อ่านไฟล์ AC25 `.xlsb`
 - `chatriacc/chart.py` — รหัสบัญชีรับ-จ่ายมาตรฐานของวัด
-- `scripts/install_on_server.sh` — ติดตั้ง systemd บน 192.168.10.65
+- `scripts/install_on_server.sh` — ติดตั้ง systemd บน cameraserver 192.168.10.56
