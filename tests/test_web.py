@@ -52,3 +52,9 @@ def test_ledger_and_pl_pages(tmp_path):
     pl = client.get("/reports/pl")
     assert pl.status_code == 200
     assert "5201".encode() in pl.data
+    by_code = client.get("/reports/accounts?code=5201")
+    assert by_code.status_code == 200
+    assert "รายงานรหัสบัญชี".encode("utf-8") in by_code.data
+    assert "5201".encode() in by_code.data
+    assert "ค่าไฟฟ้า".encode("utf-8") in by_code.data
+    assert "รวมรหัส 5201".encode("utf-8") in by_code.data

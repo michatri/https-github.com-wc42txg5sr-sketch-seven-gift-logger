@@ -432,6 +432,84 @@ class Store:
         with self.tx() as conn:
             return conn.execute(sql, params).fetchall()
 
+    def account_code_report(
+        self,
+        year: int | None = None,
+        month: int | None = None,
+        codes: list[int] | None = None,
+        kind: str | None = None,
+        include_cancelled: bool = False,
+    ) -> dict:
+        year = year or self.fiscal_year()
+        wanted = sorted({int(c) for c in (codes or []) if c not in (None, "")})
+        sql = """
+            SELECT l.*, v.number, v.kind, v.cancelled, a.name AS account_name, a.kind AS account_kind
+            FROM voucher_lines l
+            JOIN vouchers v ON v.id = l.voucher_id
+            LEFT JOIN accounts a ON a.code = l.account_code
+            WHERE v.year = ?
+        """
+        params: list = [year]
+        if not include_cancelled:
+            sql += " AND v.cancelled = 0"
+        if kind in ("rv", "pv"):
+            sql += " AND v.kind = ?"
+            params.append(kind)
+        if month:
+            sql += " AND strftime('%m', l.txn_date) = ?"
+            params.append(f"{int(month):02d}")
+        if wanted:
+            placeholders = ",".join("?" * len(wanted))
+            sql += f" AND l.account_code IN ({placeholders})"
+            params.extend(wanted)
+        sql += " ORDER BY l.account_code, l.txn_date, v.kind, v.number, l.line_no"
+        with self.tx() as conn:
+            rows = conn.execute(sql, params).fetchall()
+        names = {int(a["code"]): a for a in self.accounts()}
+        grouped: dict[int, list] = defaultdict(list)
+        for row in rows:
+            grouped[int(row["account_code"] or 0)].append(row)
+        if wanted:
+            ordered_codes = wanted
+        else:
+            ordered_codes = sorted(grouped)
+        groups = []
+        income_total = 0
+        expense_total = 0
+        for code in ordered_codes:
+            acc = names.get(code)
+            items = grouped.get(code, [])
+            total = sum(int(r["amount_satang"]) for r in items)
+            acc_kind = (acc["kind"] if acc else None) or (items[0]["kind"] if items else "")
+            if acc_kind in ("income", "rv") or (items and items[0]["kind"] == "rv"):
+                income_total += total
+                display_kind = "income"
+            else:
+                expense_total += total
+                display_kind = "expense"
+            groups.append(
+                {
+                    "code": code,
+                    "name": acc["name"] if acc else "",
+                    "kind": display_kind,
+                    "rows": items,
+                    "total": total,
+                    "count": len(items),
+                }
+            )
+        return {
+            "year": year,
+            "month": month,
+            "kind": kind,
+            "codes": wanted,
+            "groups": groups,
+            "income_total": income_total,
+            "expense_total": expense_total,
+            "grand_total": income_total + expense_total,
+            "net": income_total - expense_total,
+            "grand_count": sum(g["count"] for g in groups),
+        }
+
     def year_totals(self, year: int | None = None) -> dict:
         year = year or self.fiscal_year()
         with self.tx() as conn:

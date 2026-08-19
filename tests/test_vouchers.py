@@ -54,6 +54,27 @@ def test_pl_groups_by_account_and_month(tmp_path):
     assert totals["net"] == 7500
 
 
+def test_account_code_report_filters_sorts_and_summarizes(tmp_path):
+    store = Store(tmp_path / "t.db")
+    store.create_voucher("rv", [_line("2025-01-02", "ถุงทาน", 10000, 4101)])
+    store.create_voucher("rv", [_line("2025-02-02", "ขอมิสซา", 4000, 4121)])
+    store.create_voucher("pv", [_line("2025-03-10", "ค่าน้ำ", 2500, 5211)])
+    all_codes = store.account_code_report(2025)
+    assert [g["code"] for g in all_codes["groups"]] == [4101, 4121, 5211]
+    assert all_codes["income_total"] == 14000
+    assert all_codes["expense_total"] == 2500
+    assert all_codes["net"] == 11500
+    assert all_codes["grand_count"] == 3
+    picked = store.account_code_report(2025, codes=[5211, 4101])
+    assert [g["code"] for g in picked["groups"]] == [4101, 5211]
+    assert picked["groups"][0]["total"] == 10000
+    assert picked["groups"][1]["total"] == 2500
+    jan = store.account_code_report(2025, month=1, codes=[4101, 4121])
+    assert jan["groups"][0]["count"] == 1
+    assert jan["groups"][1]["count"] == 0
+    assert jan["income_total"] == 10000
+
+
 def test_seven_line_limit(tmp_path):
     store = Store(tmp_path / "t.db")
     lines = [_line(detail=f"รายการ {i}") for i in range(8)]

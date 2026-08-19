@@ -149,6 +149,39 @@ def create_app(db_path: str | Path | None = None) -> Flask:
             total=total,
         )
 
+    @app.get("/reports/accounts")
+    def report_accounts():
+        year = _year()
+        month = request.args.get("month", type=int)
+        if month == 0:
+            month = None
+        kind = request.args.get("kind") or ""
+        if kind not in ("rv", "pv"):
+            kind = None
+        selected = []
+        for raw in request.args.getlist("code"):
+            try:
+                selected.append(int(raw))
+            except (TypeError, ValueError):
+                continue
+        report = store.account_code_report(
+            year=year,
+            month=month,
+            codes=selected or None,
+            kind=kind,
+        )
+        return render_template(
+            "report_accounts.html",
+            year=year,
+            month=month or 0,
+            kind=kind or "",
+            selected=set(selected),
+            report=report,
+            income_acc=store.accounts("income"),
+            expense_acc=store.accounts("expense"),
+            filtered=bool(selected),
+        )
+
     @app.get("/reports/pl")
     def report_pl():
         year = _year()

@@ -108,12 +108,16 @@ input, select, textarea {
 .linkish { background: none; border: 0; color: var(--danger); cursor: pointer; font: inherit; }
 .check { display: flex; gap: 8px; align-items: center; margin: 12px 0; }
 .check input { width: auto; }
+.code-picker .split { align-items: start; }
+.code-picker .check { margin: 4px 0; font-size: 14px; }
+.code-picker h3 { margin: 8px 0; }
+tfoot th { background: #f6f1e8; }
 @media (max-width: 980px) {
   body { grid-template-columns: 1fr; }
   .sidebar { min-height: auto; position: relative; }
   .kpis, .split { grid-template-columns: 1fr; }
 }
 @media print {
-  .sidebar, .topbar .btn-row, .flash-wrap { display: none !important; }
+  .sidebar, .topbar .btn-row, .flash-wrap, .no-print { display: none !important; }
   body { display: block; background: #fff; }
 }
