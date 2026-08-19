@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/*.db
+data/*.db-journal
+data/photos/
+data/.secret
+data/uploads/
+*.egg-info/
+.DS_Store
+.env
+/tmp/
