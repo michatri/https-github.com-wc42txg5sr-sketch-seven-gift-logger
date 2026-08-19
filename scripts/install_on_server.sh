@@ -123,12 +123,18 @@ fi
 echo "==> จะเปิด chatriACC ที่พอร์ต ${BIND_PORT}"
 
 echo "==> ตรวจ import ก่อนสตาร์ท systemd"
-if ! sudo -u "$APP_USER" env PYTHONPATH="$ROOT" "$ROOT/.venv/bin/python" -c "from chatriacc.wsgi import app; print(app.name)"; then
+if ! sudo -u "$APP_USER" env PYTHONPATH="$ROOT" CHATRIACC_AUTO_SEED=0 "$ROOT/.venv/bin/python" -c "from chatriacc.wsgi import app; print(app.name)"; then
   echo "ERROR: import chatriacc ไม่ผ่าน"
   echo "user=${APP_USER} root=${ROOT}"
   ls -ld /root "$ROOT" "$ROOT/.venv/bin/python" 2>&1 || true
   exit 1
 fi
+
+echo "==> นำเข้าข้อมูลจาก chatriacc/seed/AC25-209.xlsb เข้าฐานข้อมูล"
+sudo -u "$APP_USER" env PYTHONPATH="$ROOT" CHATRIACC_DB="${ROOT}/data/chatriacc.db" \
+  "$ROOT/.venv/bin/python" -m chatriacc.importer || true
+sudo -u "$APP_USER" env PYTHONPATH="$ROOT" CHATRIACC_DB="${ROOT}/data/chatriacc.db" \
+  "$ROOT/.venv/bin/python" -c "from chatriacc.db import Store; s=Store('${ROOT}/data/chatriacc.db'); print('ใบสำคัญในฐาน:', s.voucher_count())" || true
 
 ENV_FILE=/etc/chatriacc.env
 SECRET="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"

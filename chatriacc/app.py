@@ -9,7 +9,7 @@ from flask import Flask, abort, flash, redirect, render_template, request, url_f
 
 from .dates import THAI_MONTHS, buddhist_year, iso_date, thai_date, today, year_label
 from .db import Store
-from .importer import SEED_XLSB, import_xlsb
+from .importer import SEED_XLSB, ensure_seed_imported, import_xlsb
 from .money import baht_text, baht_to_satang, format_baht
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,8 +26,14 @@ def create_app(db_path: str | Path | None = None) -> Flask:
         root_path=str(Path(__file__).resolve().parent),
     )
     app.secret_key = os.environ.get("CHATRIACC_SECRET", "chatriacc-lan")
+    using_default_db = db_path is None
     store = Store(db_path or DEFAULT_DB)
     app.config["STORE"] = store
+    if using_default_db and os.environ.get("CHATRIACC_AUTO_SEED", "1") == "1":
+        try:
+            ensure_seed_imported(store)
+        except Exception:
+            pass
 
     @app.context_processor
     def inject_globals():

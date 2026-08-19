@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
+import fcntl
+import os
+import sys
 from pathlib import Path
 
 from .dates import iso_date
@@ -294,3 +298,48 @@ def import_xlsb(store, path: str | Path, replace: bool = True) -> dict:
         "skipped": skipped,
         "years": sorted(years),
     }
+
+
+def ensure_seed_imported(store, path: str | Path | None = None, force: bool = False) -> dict | None:
+    """Load AC25-209.xlsb into an empty database. Skip if vouchers already exist unless force."""
+    source = Path(path) if path else SEED_XLSB
+    if not source.exists():
+        return None
+    lock_path = Path(store.path).parent / ".chatriacc-seed.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "a+", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not force and store.voucher_count() > 0:
+            return None
+        result = import_xlsb(store, source, replace=True)
+        store.save_settings({"seed_imported": "1", "seed_file": source.name})
+        return result
+
+
+def main(argv: list[str] | None = None) -> int:
+    from .db import Store
+
+    root = Path(__file__).resolve().parent.parent
+    parser = argparse.ArgumentParser(description="นำเข้าไฟล์ AC25 .xlsb เข้าฐาน chatriACC")
+    parser.add_argument("path", nargs="?", default=str(SEED_XLSB), help="ไฟล์ .xlsb")
+    parser.add_argument(
+        "--db",
+        default=os.environ.get("CHATRIACC_DB", str(root / "data" / "chatriacc.db")),
+    )
+    parser.add_argument("--force", action="store_true", help="แทนที่ใบสำคัญปีเดียวกันแม้ฐานไม่ว่าง")
+    args = parser.parse_args(argv)
+    store = Store(args.db)
+    result = ensure_seed_imported(store, args.path, force=args.force)
+    if result is None:
+        print(f"ข้าม: ฐาน {args.db} มีใบสำคัญอยู่แล้ว หรือไม่พบไฟล์ {args.path}")
+        print(f"จำนวนใบสำคัญปัจจุบัน: {store.voucher_count()}")
+        return 0
+    print(
+        f"นำเข้าแล้ว รับ {result['rv']} ใบ จ่าย {result['pv']} ใบ "
+        f"บันทึก {result['created']} ข้าม {result['skipped']} ปี {result['years']}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -87,6 +87,9 @@ if ! "$PY" -c "from chatriacc.wsgi import app; print('import-ok', app.name)"; th
   exit 1
 fi
 
+log "นำเข้าข้อมูลจากไฟล์ AC25-209.xlsb ถ้าฐานยังว่าง"
+"$PY" -m chatriacc.importer || log "ข้ามการนำเข้าไฟล์ AC25"
+
 log "เปิด http://0.0.0.0:${PORT}/  (ใช้ IP จริงจาก hostname -I ไม่ใช่แค่ .65)"
 exec "$GUNI" \
   --chdir "$ROOT" \

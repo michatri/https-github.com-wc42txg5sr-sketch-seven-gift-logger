@@ -20,10 +20,13 @@ def test_install_scripts_target_chatriacc_and_65():
     assert "Permission denied" in install
     assert "ย้ายไป" in install
     assert "chatriacc.wsgi:app" in runner
+    assert "chatriacc.importer" in runner
     assert "8100" in unit
     assert "CHATRIACC_PORT=8100" in unit
     assert "CHATRIACC_PORT:-8100" in runner
     assert "CHATRIACC_BIND_80=0" in install
+    assert "chatriacc.importer" in install
+    assert "AC25-209.xlsb" in install
     assert "8090" in runner
     assert "8100" in ports
     assert "192.168.10.0/24" in ports

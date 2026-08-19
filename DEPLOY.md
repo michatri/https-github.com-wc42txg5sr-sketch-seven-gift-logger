@@ -56,7 +56,17 @@ sudo /root/chatriacc/scripts/install_on_server.sh
 อย่าไป `git checkout` ทับโฟลเดอร์ระบบลงเวลาหรือ Tomcat ที่มีอยู่แล้ว
 อย่า `cp` ไฟล์ `chatriacc.service` เข้า `/etc/systemd` เอง ให้ใช้สคริปต์ติดตั้ง เพราะมันจะใส่ path จริงของโฟลเดอร์บนเครื่อง
 
-หลังขึ้นเว็บแล้ว ให้เข้าเมนู **นำเข้า AC25** เพื่อดึงข้อมูลจากไฟล์โปรแกรมบัญชีวัดเดิม
+สคริปต์ติดตั้งจะนำเข้า `chatriacc/seed/AC25-209.xlsb` เข้า `data/chatriacc.db` ให้อัตโนมัติถ้าฐานยังไม่มีใบสำคัญ
+
+ถ้าฐานว่างอยู่แล้วหลังอัปเดตโค้ด ให้รัน:
+
+```bash
+cd /home/aaa/chatriacc
+sudo -u aaa env PYTHONPATH=/home/aaa/chatriacc CHATRIACC_DB=/home/aaa/chatriacc/data/chatriacc.db \
+  /home/aaa/chatriacc/.venv/bin/python -m chatriacc.importer
+```
+
+หรือใช้ `--force` ถ้าต้องการให้ไฟล์ทับใบสำคัญปีเดียวกันในฐาน
 
 ## ถ้ายังเข้าไม่ได้
 

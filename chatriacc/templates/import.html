@@ -6,6 +6,7 @@
 <section class="card">
   <p>ไฟล์ต้นทางคือโปรแกรมบัญชีวัด <code>AC25-209.xlsb</code> ของอัครสังฆมณฑลกรุงเทพฯ ระบบจะดึงใบสำคัญรับ (CRV) ใบสำคัญจ่าย (CPV) ครุภัณฑ์ และประมาณการ มาไว้ใน {{ app_name }}</p>
   <p>ฐานข้อมูลตอนนี้มี {{ voucher_count }} ใบสำคัญ</p>
+  <p class="hint">ตอนติดตั้งระบบจะดึงไฟล์ AC25-209 ที่มากับโปรแกรมเข้าฐานให้อัตโนมัติถ้ายังว่าง ใช้หน้านี้เมื่อจะนำเข้าไฟล์ใหม่หรือนำเข้าซ้ำ</p>
   <form method="post" enctype="multipart/form-data">
     <label>เลือกไฟล์ .xlsb
       <input type="file" name="file" accept=".xlsb">

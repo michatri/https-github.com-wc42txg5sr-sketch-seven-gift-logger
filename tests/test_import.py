@@ -90,3 +90,18 @@ def test_seed_xlsb_matches_excel_year_totals(tmp_path):
     assert totals["expense_total"] == 571097337
     assert store.next_number("rv", 2025) == 61
     assert store.next_number("pv", 2025) == 372
+
+
+def test_ensure_seed_imported_fills_empty_db(tmp_path):
+    from chatriacc.importer import ensure_seed_imported
+
+    if not SEED_XLSB.exists():
+        return
+    store = Store(tmp_path / "auto-seed.db")
+    first = ensure_seed_imported(store)
+    assert first is not None
+    assert first["created"] == first["rv"] + first["pv"]
+    assert store.voucher_count() == first["created"]
+    second = ensure_seed_imported(store)
+    assert second is None
+    assert store.voucher_count() == first["created"]
