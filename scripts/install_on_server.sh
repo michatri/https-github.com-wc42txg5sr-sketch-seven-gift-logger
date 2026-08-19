@@ -179,9 +179,13 @@ SyslogIdentifier=chatriacc
 WantedBy=multi-user.target
 EOF
 
-echo "==> เปิดไฟร์วอลล์พอร์ต ${BIND_PORT} สำหรับ LAN"
+echo "==> เปิดไฟร์วอลล์พอร์ต ${BIND_PORT}"
 chmod +x "$ROOT/scripts/open_lan_ports.sh"
-CHATRIACC_LAN=192.168.10.0/24 "$ROOT/scripts/open_lan_ports.sh" "${BIND_PORT}" || true
+if [[ "${CHATRIACC_PUBLIC:-0}" == "1" ]]; then
+  CHATRIACC_PUBLIC=1 CHATRIACC_LAN=0.0.0.0/0 "$ROOT/scripts/open_lan_ports.sh" "${BIND_PORT}" || true
+else
+  CHATRIACC_LAN="${CHATRIACC_LAN:-192.168.10.0/24}" "$ROOT/scripts/open_lan_ports.sh" "${BIND_PORT}" || true
+fi
 
 if command -v fuser >/dev/null 2>&1; then
   fuser -k "${BIND_PORT}/tcp" 2>/dev/null || true
@@ -203,9 +207,12 @@ if curl -fsS --max-time 5 "http://127.0.0.1:${BIND_PORT}/health"; then
   echo "โฟลเดอร์ที่ใช้จริง: $ROOT"
   echo "ครั้งถัดไปให้อัปเดตที่นี่ ไม่ใช่ /root/chatriacc:"
   echo "  cd $ROOT && git pull origin cursor/chatriacc-web-ebbb && sudo ./scripts/install_on_server.sh"
-  echo "เปิดจากเครื่องใน LAN ด้วย http (อย่าใช้ https) และต้องใส่ :${BIND_PORT}"
+  echo "เปิดด้วย http และต้องใส่ :${BIND_PORT}"
   echo "  http://${LOCAL_IP}:${BIND_PORT}/"
-  echo "  http://192.168.10.56:${BIND_PORT}/"
+  echo "  http://${SERVER_IP}:${BIND_PORT}/"
+  if [[ "${CHATRIACC_PUBLIC:-0}" == "1" ]]; then
+    echo "โหมด VPS: เปิดพอร์ต ${BIND_PORT} ที่ไฟร์วอลล์ของคลาวด์ด้วย (Security Group / Networking)"
+  fi
 else
   echo
   echo "ERROR: ยังเรียก http://127.0.0.1:${BIND_PORT}/health ไม่ได้"

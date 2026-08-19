@@ -1,6 +1,134 @@
-# ติดตั้ง chatriACC บน cameraserver
+# ติดตั้ง chatriACC บน cameraserver หรือ VPS
 
-`192.168.10.65` ที่เคยพิมพ์มัก timeout เพราะเครื่องที่เปิดเว็บได้จริงคือ **192.168.10.56** (cameraserver — ระบบลงเวลาที่ `:8080` และบัญชีสลิปที่ `:8090` อยู่ที่นี่)
+chatriACC ใช้พอร์ต **8100** (สำรอง 8110 / 8120) และรันด้วย gunicorn ฟังที่ `0.0.0.0` จึงย้ายขึ้น VPS ที่มี IP จริงได้โดยติดตั้งชุดเดิม
+
+- ใน LAN เครื่องที่เปิดเว็บได้จริงคือ **192.168.10.56** ไม่ใช่ `.65`
+- บน VPS ให้เปิดตาม **IP สาธารณะ** ที่แผงควบคุมคลาวด์แสดง
+
+## ย้ายขึ้น VPS ที่เป็น IP จริง
+
+โปรแกรมไม่ผูกกับ 192.168.x.x ในตัวรัน ย้ายได้ 3 ขั้น: ติดตั้งบน VPS → คัดลอกฐานข้อมูล (ถ้ามีของเดิม) → เปิดพอร์ตที่ไฟร์วอลล์คลาวด์
+
+ระบบนี้**ยังไม่มีหน้า login** ถ้าเปิด IP จริงทั้งโลกจะเข้าดู/แก้บัญชีวัดได้ ควรจำกัด IP ที่ไฟร์วอลล์ หรือใช้ VPN จนกว่าจะใส่รหัสผ่าน
+
+### 1) สร้างเครื่อง VPS
+
+ใช้ Ubuntu 22.04/24.04 แล้วดู **Public IP** จากแผง (เช่น 203.0.113.10) SSH:
+
+```bash
+ssh root@IP_จริง_ของ_VPS
+```
+
+สร้าง user ธรรมดา อย่าทำงานใน `/root`:
+
+```bash
+adduser aaa
+usermod -aG sudo aaa
+su - aaa
+```
+
+### 2) ติดตั้งบน VPS
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git python3 python3-venv python3-pip curl
+cd ~
+git clone -b cursor/chatriacc-web-ebbb \
+  https://github.com/michatri/https-github.com-wc42txg5sr-sketch-seven-gift-logger.git chatriacc
+cd ~/chatriacc
+chmod +x scripts/*.sh
+sudo CHATRIACC_PUBLIC=1 ./scripts/install_on_server.sh
+```
+
+`CHATRIACC_PUBLIC=1` ให้ไฟร์วอลล์ในเครื่องเปิดพอร์ต 8100 จากอินเทอร์เน็ต ไม่จำกัดแค่ 192.168.10.0/24
+
+ตรวจบน VPS:
+
+```bash
+curl -fsS http://127.0.0.1:8100/health
+```
+
+ต้องได้ `{"ok": true, ...}`
+
+### 3) เปิดพอร์ตที่แผงควบคุม VPS ด้วย
+
+`ufw` ในเครื่องยังไม่พอ คลาวด์มักมีไฟร์วอลล์อีกชั้น (Security Group, Networking, Firewall)
+
+เปิด **TCP 8100** เข้าเครื่องนี้ (และ 22 สำหรับ SSH)
+
+จากคอมที่บ้านเปิด:
+
+**http://IP_จริง:8100/**
+
+ต้องมี `http://` และ `:8100` อย่าใช้ `https://` จนกว่าจะติดตั้งใบรับรอง
+
+### 4) ย้ายข้อมูลจากเครื่อง LAN (ถ้าใช้มาแล้ว)
+
+บน cameraserver:
+
+```bash
+sudo systemctl stop chatriacc
+sudo tar -C /home/aaa/chatriacc -czf /tmp/chatriacc-data.tgz data/chatriacc.db data/chatriacc.db-wal data/chatriacc.db-shm data/years 2>/dev/null || \
+sudo tar -C /home/aaa/chatriacc -czf /tmp/chatriacc-data.tgz data/chatriacc.db
+```
+
+จากคอม:
+
+```bash
+scp aaa@192.168.10.56:/tmp/chatriacc-data.tgz .
+scp chatriacc-data.tgz aaa@IP_จริง:~/
+```
+
+บน VPS:
+
+```bash
+sudo systemctl stop chatriacc
+cd /home/aaa/chatriacc
+sudo tar -xzf ~/chatriacc-data.tgz
+sudo chown -R aaa:aaa data
+sudo systemctl start chatriacc
+```
+
+อย่าคัดลอกโฟลเดอร์ `.venv` จากเครื่องเก่า
+
+### 5) (ไม่บังคับ) เปิดด้วยพอร์ต 80 หรือโดเมน + https
+
+ถ้าต้องการ `http://IP_จริง/` โดยไม่ใส่ `:8100`:
+
+```bash
+sudo apt-get install -y nginx
+sudo cp /home/aaa/chatriacc/chatriacc/deploy/nginx-chatriacc.conf /etc/nginx/sites-available/chatriacc
+sudo ln -sf /etc/nginx/sites-available/chatriacc /etc/nginx/sites-enabled/chatriacc
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+sudo ufw allow 80/tcp
+```
+
+เปิด TCP **80** ที่ไฟร์วอลล์คลาวด์ด้วย
+
+ถ้ามีโดเมนชี้มาที่ IP นี้ แล้วต้องการ https:
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d ชื่อโดเมน.com
+```
+
+จากนั้นเปิด **https://ชื่อโดเมน.com/**
+
+### เช็คเมื่อ VPS เข้าไม่ได้
+
+| อาการ | สาเหตุที่พบบ่อย |
+|---|---|
+| `curl` บน VPS ได้ แต่คอม timeout | ยังไม่เปิดพอร์ตที่ **แผง VPS** |
+| Connection refused | `systemctl status chatriacc` ยังไม่ขึ้น |
+| Timeout ทั้งพอร์ต 80 และ 8100 | เปิด `https://` หรือ IP ผิด |
+| หน้าเว็บว่าง ไม่มีใบสำคัญ | ยังไม่ได้คัดลอก `data/chatriacc.db` |
+
+---
+
+## ติดตั้งใน LAN (cameraserver 192.168.10.56)
+
+`192.168.10.65` ที่เคยพิมพ์มัก timeout เพราะเครื่องที่เปิดเว็บได้จริงคือ **192.168.10.56**
 
 chatriACC ใช้พอร์ต **8100** และต้องเป็น **http** ไม่ใช่ https
 

@@ -9,6 +9,9 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 LAN="${CHATRIACC_LAN:-192.168.10.0/24}"
+if [[ "${CHATRIACC_PUBLIC:-0}" == "1" ]]; then
+  LAN="0.0.0.0/0"
+fi
 MAIN_PORT="${1:-8100}"
 PORTS=("${MAIN_PORT}" 8110 8120)
 
@@ -53,7 +56,11 @@ fi
 REAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
 echo "IP จริงของเครื่องนี้: $(hostname -I 2>/dev/null || true)"
-echo "จากเครื่องอื่นใน LAN ให้เปิด:"
+echo "จากเครื่องอื่นให้เปิด:"
 echo "  http://${REAL_IP}:${MAIN_PORT}/"
-echo "งานลงเวลา/บัญชีสลิปที่เข้าได้มาก่อนอยู่ที่ 192.168.10.56 ไม่ใช่ .65"
-echo "ใช้ http เท่านั้น อย่าพิมพ์ https และต้องใส่ :${MAIN_PORT}"
+if [[ "${CHATRIACC_PUBLIC:-0}" == "1" ]]; then
+  echo "โหมด VPS: เปิดพอร์ตให้เข้าจากอินเทอร์เน็ต ตรวจไฟร์วอลล์ที่แผงควบคุม VPS ด้วย"
+else
+  echo "งานลงเวลา/บัญชีสลิปที่เข้าได้มาก่อนอยู่ที่ 192.168.10.56 ไม่ใช่ .65"
+fi
+echo "ใช้ http เท่านั้นถ้ายังไม่มี SSL และต้องใส่ :${MAIN_PORT}"

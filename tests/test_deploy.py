@@ -30,7 +30,8 @@ def test_install_scripts_target_chatriacc_and_65():
     assert "8090" in runner
     assert "8100" in ports
     assert "192.168.10.0/24" in ports
-    assert "firewall-cmd" in ports
+    assert "CHATRIACC_PUBLIC" in install
+    assert "CHATRIACC_PUBLIC" in ports
 
 
 def test_app_name_constant():
