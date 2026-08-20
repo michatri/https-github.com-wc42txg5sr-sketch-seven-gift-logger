@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}รายชื่อวัด{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>รายชื่อวัดคาทอลิกในประเทศไทย</h2>
+    <div class="sub">จากตาราง Church ใน Catholic.mdb · {{ count }} รายการ</div>
+  </div>
+</div>
+<div class="card">
+  <form class="searchbar" method="get">
+    <div style="flex:1"><label>ค้นหา</label><input type="search" name="q" value="{{ q }}" placeholder="รหัสวัด ชื่อวัด หรือที่อยู่"></div>
+    <div>
+      <label>สังฆมณฑล</label>
+      <select name="diocese">
+        <option value="">ทั้งหมด</option>
+        {% for code, name in dioceses.items() %}
+        <option value="{{ code }}" {% if diocese==code %}selected{% endif %}>{{ code }} {{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn">ค้นหา</button>
+  </form>
+</div>
+<div class="card" style="margin-top:16px; overflow:auto">
+  <table>
+    <tr><th>รหัส</th><th>ชื่อวัด</th><th>ชื่อสามัญ</th><th>สังฆมณฑล</th><th>ที่อยู่</th><th>โทร</th></tr>
+    {% for c in items %}
+    <tr class="{% if c.is_header %}muted{% endif %}">
+      <td>{{ c.id }}</td>
+      <td>{% if c.is_header %}<b>{{ c.name }}</b>{% else %}<a href="/churches/{{ c.id }}">{{ c.name }}</a>{% endif %}</td>
+      <td>{{ c.gen_name or '' }}</td>
+      <td>{{ c.diocese }}</td>
+      <td>{{ c.address1 or '' }} {{ c.address2 or '' }}</td>
+      <td>{{ c.tel or '' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}ข้อมูลการย้าย{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h2>{% if is_new %}สร้างข้อมูลการย้าย{% else %}แก้ไขรายการย้าย{% endif %}{% if member %} ของ {{ member|dname }}{% endif %}</h2>
+</div>
+<form method="post" class="card form-grid">
+  <div class="field"><label>รหัสบุคคล</label><input name="num" value="{{ item.num or '' }}"></div>
+  <div class="field"><label>รหัสในระบบ (member_id)</label><input name="member_id" value="{{ item.member_id or '' }}"></div>
+  <div class="field"><label>วันที่ย้ายเข้า</label><input type="date" name="date_in" value="{{ item.date_in or '' }}"></div>
+  <div class="field"><label>ผู้บันทึกย้ายเข้า</label><input name="move_in_by" value="{{ item.move_in_by or '' }}"></div>
+  <div class="field span-2"><label>ย้ายมาจากวัด</label><input name="from_church" value="{{ item.from_church or '' }}"></div>
+  <div class="field"><label>เลขที่ย้ายจากวัดเดิม</label><input name="move_from_no" value="{{ item.move_from_no or '' }}"></div>
+  <div class="field"><label>เจ้าอาวาสวัดเดิม</label><input name="from_fr" value="{{ item.from_fr or '' }}"></div>
+  <div class="field"><label>วันที่ย้ายออก</label><input type="date" name="date_out" value="{{ item.date_out or '' }}"></div>
+  <div class="field"><label>ผู้บันทึกย้ายออก</label><input name="move_out_by" value="{{ item.move_out_by or '' }}"></div>
+  <div class="field span-2"><label>ย้ายไปวัด</label><input name="to_church" value="{{ item.to_church or '' }}"></div>
+  <div class="field"><label>เลขที่ย้ายไป</label><input name="move_to_no" value="{{ item.move_to_no or '' }}"></div>
+  <div class="field"><label>ผู้รับสังกัดวัดใหม่</label><input name="receive_in_by" value="{{ item.receive_in_by or '' }}"></div>
+  <div class="span-3 actions">
+    <button class="btn gold">บันทึกและพิมพ์</button>
+    <a class="btn ghost" href="/moves">ยกเลิก</a>
+  </div>
+</form>
+{% if not is_new %}
+<form method="post" action="/moves/{{ item.id }}/delete" data-confirm="ต้องการลบข้อมูลการย้ายนี้?" style="margin-top:12px">
+  <button class="btn danger">ลบ</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>เอกสารแจ้งย้าย</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Sarabun, sans-serif; }
+    .sheet { max-width: 800px; margin: 16px auto; border: 6px double #6b1d2a; padding: 28px 36px; }
+    h1 { text-align: center; color: #6b1d2a; }
+    .bar { padding: 12px; }
+    @media print { .bar { display: none; } }
+  </style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">พิมพ์</button> <a href="/moves">กลับ</a></div>
+<div class="sheet">
+  <div style="text-align:center">✝<br>{{ parish.church_th }}<br>{{ parish.addr_th }}</div>
+  <h1>เอกสารแจ้งย้ายสัตบุรุษ</h1>
+  <p>รหัส {{ item.num }} · {{ full_name }}</p>
+  <p>ย้ายเข้าวันที่ {{ item.date_in|thai_date or '-' }} จากวัด {{ item.from_church or '-' }} เลขที่ {{ item.move_from_no or '-' }} เจ้าอาวาสวัดเดิม {{ item.from_fr or '-' }}</p>
+  <p>ย้ายออกวันที่ {{ item.date_out|thai_date or '-' }} ไปวัด {{ item.to_church or '-' }} เลขที่ {{ item.move_to_no or '-' }}</p>
+  <p>ผู้บันทึกย้ายเข้า {{ item.move_in_by or '-' }} · ผู้รับสังกัด {{ item.receive_in_by or '-' }} · ผู้บันทึกย้ายออก {{ item.move_out_by or '-' }}</p>
+  <p style="margin-top:48px;text-align:right">{{ parish.father }}<br>เจ้าอาวาส</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}สัตบุรุษ{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>ทะเบียนสัตบุรุษ</h2>
+    <div class="sub">พบ {{ count }} รายการ · ค้นหาแบบเดียวกับ CatholicIDv4.5</div>
+  </div>
+  <div class="actions">
+    <a class="btn gold" href="/members/new">+ เพิ่มบุคคลใหม่</a>
+    <a class="btn ghost" href="/print/list?{{ list_query(q=q, field=field, extra=extra, mode='alpha') }}">พิมพ์รายชื่อ</a>
+  </div>
+</div>
+
+<div class="card">
+  <form class="searchbar" method="get">
+    <div>
+      <label>ค้นหาด้วย</label>
+      <select name="field">
+        {% for key, label in search_fields %}
+        <option value="{{ key }}" {% if field==key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:1">
+      <label>ข้อความ</label>
+      <input type="search" name="q" value="{{ q }}" placeholder="พิมพ์บางส่วนแล้ว Enter">
+    </div>
+    <div>
+      <label>เรียง</label>
+      <select name="sort">
+        <option value="name" {% if sort=='name' %}selected{% endif %}>ชื่อ-นามสกุล</option>
+        <option value="num" {% if sort=='num' %}selected{% endif %}>รหัส</option>
+        <option value="saint" {% if sort=='saint' %}selected{% endif %}>ชื่อนักบุญ</option>
+        <option value="gang" {% if sort=='gang' %}selected{% endif %}>กลุ่ม</option>
+        <option value="family" {% if sort=='family' %}selected{% endif %}>ครอบครัว</option>
+      </select>
+    </div>
+    <input type="hidden" name="extra" value="{{ extra }}">
+    <button class="btn">ค้นหา</button>
+  </form>
+  <div class="filters">
+    {% set extras = [
+      ('', 'ทั้งหมด'), ('alive','ยังมีชีวิต/สังกัดวัด'), ('dead','เสียชีวิตแล้ว'),
+      ('moved','ย้ายออก'), ('male','เพศชาย'), ('female','เพศหญิง'),
+      ('single','โสด'), ('married','แต่งงานแล้ว'),
+      ('no_baptism','ยังไม่รับศีลล้างบาป'), ('no_communion','ยังไม่รับศีลมหาสนิท'),
+      ('no_confirm','ยังไม่รับศีลกำลัง')
+    ] %}
+    {% for key, label in extras %}
+      <a class="chip {% if extra==key %}on{% endif %}" href="/members?{{ list_query(q=q, field=field, sort=sort, extra=key) }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px; overflow:auto">
+  <table>
+    <tr>
+      <th>รหัส</th><th>ชื่อนักบุญ</th><th>ชื่อ-นามสกุล</th><th>กลุ่ม</th><th>ครอบครัว</th><th>ที่อยู่</th><th>สถานะ</th>
+    </tr>
+    {% for m in items %}
+    <tr>
+      <td>{{ m.num or '-' }}</td>
+      <td>{{ m.saint_name or '' }}</td>
+      <td><a href="/members/{{ m.id }}"><b>{{ m.first_name }} {{ m.last_name }}</b></a></td>
+      <td>{{ m.gang or '' }}</td>
+      <td>{{ m.family_no or m.from_family or '' }}</td>
+      <td>{{ m.address1 or '' }} {{ m.address2 or '' }}</td>
+      <td>
+        {% if m.dead_date %}<span class="badge dead">มรณะ</span>
+        {% elif m.date_out %}<span class="badge moved">ย้ายออก</span>
+        {% else %}<span class="badge">สังกัดวัด</span>{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">ไม่พบข้อมูล</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

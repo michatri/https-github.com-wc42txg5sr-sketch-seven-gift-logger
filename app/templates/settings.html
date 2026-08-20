@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}ข้อมูลวัด / พิมพ์{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>ข้อมูลหัวกระดาษและบัตรประจำตัว</h2>
+    <div class="sub">ตาราง Print ใน Catholic.mdb ใช้กับบัตร ID จดหมาย และใบรับรอง</div>
+  </div>
+</div>
+{% if request.query_params.get('saved') %}<div class="flash">บันทึกแล้ว</div>{% endif %}
+<form method="post" class="card form-grid">
+  <div class="field span-2"><label>ชื่อวัด (ไทย)</label><input name="church_th" value="{{ parish.church_th or '' }}"></div>
+  <div class="field"><label>ชื่อวัด (อังกฤษ)</label><input name="church_en" value="{{ parish.church_en or '' }}"></div>
+  <div class="field span-2"><label>ที่อยู่ไทย</label><input name="addr_th" value="{{ parish.addr_th or '' }}"></div>
+  <div class="field span-2"><label>ที่อยู่อังกฤษ</label><input name="addr_en" value="{{ parish.addr_en or '' }}"></div>
+  <div class="field"><label>เจ้าอาวาส / บาทหลวง</label><input name="father" value="{{ parish.father or '' }}"></div>
+  <div class="field"><label>รหัสนำหน้า NUM</label><input name="id_prefix" value="{{ parish.id_prefix or '' }}"></div>
+  <div class="field"><label>ศาสนา</label><input name="religion" value="{{ parish.religion or 'คาทอลิก' }}"></div>
+  <div class="field"><label>อำเภอ/จังหวัด</label><input name="province" value="{{ parish.province or '' }}"></div>
+  <div class="field"><label>ชื่อวัดสำหรับบัตร 1</label><input name="church1" value="{{ parish.church1 or '' }}"></div>
+  <div class="field"><label>ชื่อวัด 2</label><input name="church2" value="{{ parish.church2 or '' }}"></div>
+  <div class="field"><label>ชื่อวัด 3</label><input name="church3" value="{{ parish.church3 or '' }}"></div>
+  <div class="field"><label>คำขึ้นต้นจดหมาย</label><input name="sen" value="{{ parish.sen or 'เรียน' }}"></div>
+  <div class="field"><label>คำนำหน้าชื่อ</label><input name="prefix" value="{{ parish.prefix or 'คุณ' }}"></div>
+  <div class="span-3 actions"><button class="btn gold">บันทึก</button></div>
+</form>
+{% endblock %}

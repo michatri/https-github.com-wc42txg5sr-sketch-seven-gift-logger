@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>จ่าหน้าซอง {{ full_name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Sarabun, sans-serif; }
+    .env { width: 190mm; height: 110mm; border: 1px dashed #999; margin: 20px auto; padding: 24mm 20mm; position: relative; }
+    .from { font-size: 13px; }
+    .to { margin-top: 28mm; font-size: 20px; line-height: 1.5; }
+    .bar { padding: 12px; }
+    @media print { .bar { display: none; } .env { border: 0; } }
+  </style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">พิมพ์จ่าหน้าซอง</button> <a href="/members/{{ member.id }}">กลับ</a></div>
+<div class="env">
+  <div class="from">
+    {{ parish.sen or 'เรียน' }} {{ parish.prefix or 'คุณ' }} {{ full_name }}<br>
+    จาก {{ parish.church_th }}<br>{{ parish.addr_th }}
+  </div>
+  <div class="to">
+    <b>{{ parish.prefix or 'คุณ' }} {{ full_name }}</b><br>
+    {{ member.address1 }}<br>
+    {{ member.address2 }}
+  </div>
+</div>
+</body>
+</html>
