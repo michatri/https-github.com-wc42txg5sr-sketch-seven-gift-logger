@@ -7,7 +7,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-PORT="${CATHOLIC_PORT:-8080}"
+PORT="${CATHOLIC_PORT:-8222}"
 APP_USER="${CATHOLIC_APP_USER:-aaa}"
 
 echo "==> Catholic ID Web setup in $ROOT"
@@ -45,6 +45,7 @@ else
 
   if command -v fuser >/dev/null 2>&1; then
     fuser -k "${PORT}/tcp" 2>/dev/null || true
+    fuser -k "8080/tcp" 2>/dev/null || true
   fi
   pkill -f "uvicorn app.main:app" 2>/dev/null || true
   sleep 1

@@ -7,7 +7,7 @@ set -euo pipefail
 HOST="${CATHOLIC_HOST:-192.168.10.56}"
 USER="${CATHOLIC_USER:-aaa}"
 DEST="${CATHOLIC_DEST:-/home/aaa/catholic-id}"
-PORT="${CATHOLIC_PORT:-8080}"
+PORT="${CATHOLIC_PORT:-8222}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -33,7 +33,7 @@ set -e
 cd '${DEST}'
 if command -v docker >/dev/null 2>&1; then
   docker compose up -d --build
-  echo "Started with Docker on port 8080"
+  echo "Started with Docker on port ${PORT}"
 else
   python3 -m venv .venv
   .venv/bin/pip install -r requirements.txt

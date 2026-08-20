@@ -4,7 +4,7 @@ services:
     container_name: catholic-id
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8222:8222"
     volumes:
       - ./app/data:/opt/catholic-id/app/data
       - ./app/uploads:/opt/catholic-id/app/uploads

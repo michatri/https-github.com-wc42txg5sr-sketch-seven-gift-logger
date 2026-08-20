@@ -25,14 +25,12 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 # ถ้ามี Catholic.mdb และ mdbtools:
 #   .venv/bin/python scripts/import_mdb.py
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8222
 ```
 
-เปิด http://127.0.0.1:8080 เข้าสู่ระบบด้วย `admin` / `password`
+เปิด http://127.0.0.1:8222 เข้าสู่ระบบด้วย `admin` / `password`
 
 เมนู **รายงาน PDF** ดาวน์โหลดบัตรประจำตัว ใบรับรองศีล รายชื่อสัตบุรุษ ใบแจ้งสมรส เอกสารย้าย และรายชื่อวัด เป็นไฟล์ PDF
-
-## Docker
 
 ## Docker
 
@@ -53,7 +51,7 @@ cd catholic-id
 bash scripts/setup-server.sh
 ```
 
-จากนั้นเปิด http://192.168.10.56:8080 เข้าสู่ระบบด้วย `admin` / `password`
+จากนั้นเปิด http://192.168.10.56:8222 เข้าสู่ระบบด้วย `admin` / `password`
 
 ถ้าต้องการส่งจากเครื่องพัฒนาที่มี repo นี้อยู่แล้ว:
 
