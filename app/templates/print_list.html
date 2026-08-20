@@ -18,6 +18,7 @@
 <body>
 <div class="bar">
   <button onclick="print()">พิมพ์</button>
+  <a href="/pdf/list?{{ list_query(q=q, field=field, extra=extra, mode=mode) }}">ดาวน์โหลด PDF</a>
   <a href="/members">กลับ</a>
   · <a href="/print/list?mode=alpha">อักษร</a>
   · <a href="/print/list?mode=saint">นักบุญ</a>

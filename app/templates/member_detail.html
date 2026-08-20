@@ -8,9 +8,10 @@
   </div>
   <div class="actions">
     <a class="btn gold" href="/members/{{ member.id }}/edit">แก้ไข</a>
-    <a class="btn ghost" href="/print/id/{{ member.id }}">บัตรประจำตัว</a>
-    <a class="btn ghost" href="/print/certificate/{{ member.id }}?kind=all">ใบรับรองศีล</a>
-    <a class="btn ghost" href="/print/envelope/{{ member.id }}">จ่าหน้าซอง</a>
+    <a class="btn ghost" href="/pdf/id/{{ member.id }}">บัตร PDF</a>
+    <a class="btn ghost" href="/pdf/certificate/{{ member.id }}?kind=all">ใบรับรองศีล PDF</a>
+    <a class="btn ghost" href="/pdf/member/{{ member.id }}">ประวัติ PDF</a>
+    <a class="btn ghost" href="/print/id/{{ member.id }}">พิมพ์บัตร</a>
     <a class="btn ghost" href="/members/new?copy_from={{ member.id }}">เพิ่มคนในบ้านนี้</a>
     <a class="btn ghost" href="/moves/new?member_id={{ member.id }}">สร้างการย้าย</a>
     <a class="btn ghost" href="/marriages/new?member_id={{ member.id }}">สร้างใบแจ้งสมรส</a>
@@ -60,9 +61,13 @@
     </table>
     <div class="actions" style="margin-top:12px">
       <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=baptism">พิมพ์ใบล้างบาป</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=baptism">PDF ล้างบาป</a>
       <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=communion">พิมพ์ใบมหาสนิท</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=communion">PDF มหาสนิท</a>
       <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=confirm">พิมพ์ใบศีลกำลัง</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=confirm">PDF ศีลกำลัง</a>
       <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=marriage">พิมพ์ใบสมรส</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=marriage">PDF สมรส</a>
     </div>
   </div>
 

@@ -29,6 +29,19 @@ from app.db import (
     thai_date,
     today,
 )
+from app.pdfs import (
+    CERT_TITLES,
+    LIST_TITLES,
+    certificate_pdf,
+    churches_pdf,
+    envelope_pdf,
+    id_card_pdf,
+    list_pdf,
+    marriage_pdf,
+    member_record_pdf,
+    move_pdf,
+    pdf_response,
+)
 
 ROOT = Path(__file__).resolve().parent
 UPLOADS = ROOT / "uploads" / "photos"
@@ -102,6 +115,24 @@ def photo_url(member_id: int) -> str | None:
     for p in UPLOADS.glob(f"{member_id}.*"):
         return f"/photos/{p.name}"
     return None
+
+
+def photo_file(member_id: int) -> Path | None:
+    for p in UPLOADS.glob(f"{member_id}.*"):
+        return p
+    return None
+
+
+def sorted_members(items: list[dict[str, Any]], mode: str) -> list[dict[str, Any]]:
+    if mode == "saint":
+        items.sort(key=lambda m: ((m.get("saint_name") or "ไม่ระบุ"), m.get("last_name") or ""))
+    elif mode == "gang":
+        items.sort(key=lambda m: ((m.get("gang") or "ไม่ระบุ"), m.get("last_name") or ""))
+    elif mode == "num":
+        items.sort(key=lambda m: m.get("num") or "")
+    elif mode == "family":
+        items.sort(key=lambda m: ((m.get("family_no") or m.get("from_family") or ""), m.get("birth_date") or ""))
+    return items
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -660,14 +691,7 @@ def print_certificate(request: Request, member_id: int, kind: str = "baptism"):
         member = row_to_dict(conn.execute("SELECT * FROM members WHERE id = ?", (member_id,)).fetchone())
     if not member:
         return RedirectResponse("/members", status_code=303)
-    titles = {
-        "baptism": "ใบรับรองศีลล้างบาป",
-        "communion": "ใบรับรองศีลมหาสนิทแรก",
-        "confirm": "ใบรับรองศีลกำลัง",
-        "marriage": "ใบรับรองศีลสมรส",
-        "death": "ใบรับรองมรณกรรม",
-        "all": "เอกสารรับรองการรับศีลศักดิ์สิทธิ์",
-    }
+    titles = CERT_TITLES
     return render(
         request,
         "print_certificate.html",
@@ -692,22 +716,8 @@ def print_list(
         return redir
     with get_db() as conn:
         items = search_members(conn, q, field, extra)
-    titles = {
-        "alpha": "รายชื่อสัตบุรุษเรียงตามอักษร",
-        "saint": "รายชื่อสัตบุรุษแยกตามชื่อนักบุญ",
-        "gang": "รายชื่อสัตบุรุษแยกตามกลุ่ม/สาย",
-        "num": "รายชื่อสัตบุรุษเรียงตามรหัส",
-        "family": "รายชื่อสัตบุรุษตามครอบครัว",
-        "summary": "สรุปข้อมูลสัตบุรุษ",
-    }
-    if mode == "saint":
-        items.sort(key=lambda m: ((m.get("saint_name") or "ไม่ระบุ"), m.get("last_name") or ""))
-    elif mode == "gang":
-        items.sort(key=lambda m: ((m.get("gang") or "ไม่ระบุ"), m.get("last_name") or ""))
-    elif mode == "num":
-        items.sort(key=lambda m: m.get("num") or "")
-    elif mode == "family":
-        items.sort(key=lambda m: ((m.get("family_no") or m.get("from_family") or ""), m.get("birth_date") or ""))
+    titles = LIST_TITLES
+    items = sorted_members(items, mode)
     with get_db() as conn:
         s = stats(conn)
     return render(
@@ -757,6 +767,126 @@ def print_move(request: Request, move_id: int):
     if not item:
         return RedirectResponse("/moves", status_code=303)
     return render(request, "print_move.html", item=item, member=member, full_name=display_name(member))
+
+
+@app.get("/reports", response_class=HTMLResponse)
+def reports_page(request: Request):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        s = stats(conn)
+        members = rows_to_dicts(conn.execute("SELECT id, num, saint_name, first_name, last_name FROM members ORDER BY last_name, first_name").fetchall())
+        marriages = rows_to_dicts(conn.execute("SELECT id, notify_no, groom, bride FROM marriage_notifies ORDER BY notify_no").fetchall())
+        moves = rows_to_dicts(conn.execute("SELECT id, num FROM moves ORDER BY id DESC").fetchall())
+    return render(request, "reports.html", stats=s, members=members, marriages=marriages, moves=moves, cert_titles=CERT_TITLES, list_titles=LIST_TITLES)
+
+
+@app.get("/pdf/id/{member_id}")
+def pdf_id(request: Request, member_id: int):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        member = row_to_dict(conn.execute("SELECT * FROM members WHERE id = ?", (member_id,)).fetchone())
+    if not member:
+        return RedirectResponse("/members", status_code=303)
+    data = id_card_pdf(get_parish(), member, photo_file(member_id))
+    return pdf_response(data, f"บัตรประจำตัว-{display_name(member)}.pdf")
+
+
+@app.get("/pdf/certificate/{member_id}")
+def pdf_certificate(request: Request, member_id: int, kind: str = "baptism"):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        member = row_to_dict(conn.execute("SELECT * FROM members WHERE id = ?", (member_id,)).fetchone())
+    if not member:
+        return RedirectResponse("/members", status_code=303)
+    data = certificate_pdf(get_parish(), member, kind, today())
+    title = CERT_TITLES.get(kind, CERT_TITLES["all"])
+    return pdf_response(data, f"{title}-{display_name(member)}.pdf")
+
+
+@app.get("/pdf/member/{member_id}")
+def pdf_member(request: Request, member_id: int):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        member = row_to_dict(conn.execute("SELECT * FROM members WHERE id = ?", (member_id,)).fetchone())
+    if not member:
+        return RedirectResponse("/members", status_code=303)
+    data = member_record_pdf(get_parish(), member)
+    return pdf_response(data, f"ประวัติ-{display_name(member)}.pdf")
+
+
+@app.get("/pdf/list")
+def pdf_list(request: Request, q: str = "", field: str = "name", extra: str = "", mode: str = "alpha"):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        items = sorted_members(search_members(conn, q, field, extra), mode)
+        s = stats(conn)
+    data = list_pdf(get_parish(), items, mode, s)
+    return pdf_response(data, f"{LIST_TITLES.get(mode, 'รายชื่อ')}.pdf")
+
+
+@app.get("/pdf/envelope/{member_id}")
+def pdf_envelope(request: Request, member_id: int):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        member = row_to_dict(conn.execute("SELECT * FROM members WHERE id = ?", (member_id,)).fetchone())
+    if not member:
+        return RedirectResponse("/members", status_code=303)
+    data = envelope_pdf(get_parish(), member)
+    return pdf_response(data, f"จ่าหน้าซอง-{display_name(member)}.pdf")
+
+
+@app.get("/pdf/marriage/{notify_id}")
+def pdf_marriage(request: Request, notify_id: int):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        item = row_to_dict(conn.execute("SELECT * FROM marriage_notifies WHERE id = ?", (notify_id,)).fetchone())
+    if not item:
+        return RedirectResponse("/marriages", status_code=303)
+    data = marriage_pdf(get_parish(), item)
+    return pdf_response(data, f"ใบแจ้งสมรส-{item.get('notify_no') or notify_id}.pdf")
+
+
+@app.get("/pdf/move/{move_id}")
+def pdf_move(request: Request, move_id: int):
+    if (redir := require_login(request)):
+        return redir
+    with get_db() as conn:
+        item = row_to_dict(conn.execute("SELECT * FROM moves WHERE id = ?", (move_id,)).fetchone())
+        member = None
+        if item and item.get("member_id"):
+            member = row_to_dict(conn.execute("SELECT * FROM members WHERE id = ?", (item["member_id"],)).fetchone())
+    if not item:
+        return RedirectResponse("/moves", status_code=303)
+    data = move_pdf(get_parish(), item, member)
+    return pdf_response(data, f"เอกสารย้าย-{item.get('num') or move_id}.pdf")
+
+
+@app.get("/pdf/churches")
+def pdf_churches(request: Request, q: str = "", diocese: str = ""):
+    if (redir := require_login(request)):
+        return redir
+    clauses = ["1=1"]
+    params: list[Any] = []
+    if q:
+        clauses.append("(id LIKE ? OR name LIKE ? OR gen_name LIKE ? OR address1 LIKE ? OR address2 LIKE ?)")
+        like = f"%{q}%"
+        params.extend([like] * 5)
+    if diocese:
+        clauses.append("id LIKE ?")
+        params.append(f"{diocese}%")
+    with get_db() as conn:
+        items = rows_to_dicts(
+            conn.execute(f"SELECT * FROM churches WHERE {' AND '.join(clauses)} ORDER BY id", params).fetchall()
+        )
+    data = churches_pdf(get_parish(), items)
+    return pdf_response(data, "รายชื่อวัดคาทอลิก.pdf")
 
 
 @app.get("/health")

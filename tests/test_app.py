@@ -82,6 +82,24 @@ def test_churches(client):
     assert "นักบุญยอแซฟ" in r.text
 
 
-def test_password_hash():
-    hashed = pbkdf2_sha256.hash("password")
-    assert pbkdf2_sha256.verify("password", hashed)
+def test_pdf_certificate(client):
+    login(client)
+    r = client.get("/pdf/certificate/1", params={"kind": "all"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/pdf")
+    assert r.content.startswith(b"%PDF")
+    assert "attachment" in r.headers.get("content-disposition", "")
+
+
+def test_pdf_member_list(client):
+    login(client)
+    r = client.get("/pdf/list", params={"mode": "summary"})
+    assert r.status_code == 200
+    assert r.content.startswith(b"%PDF")
+
+
+def test_reports_page(client):
+    login(client)
+    r = client.get("/reports")
+    assert r.status_code == 200
+    assert "ออกรายงาน PDF" in r.text

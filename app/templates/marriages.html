@@ -38,7 +38,8 @@
       <td>{{ n.notify_to }}</td>
       <td>
         <a href="/marriages/{{ n.id }}">แก้ไข</a> ·
-        <a href="/marriages/{{ n.id }}/print">พิมพ์</a>
+        <a href="/marriages/{{ n.id }}/print">พิมพ์</a> ·
+        <a href="/pdf/marriage/{{ n.id }}">PDF</a>
       </td>
     </tr>
     {% else %}

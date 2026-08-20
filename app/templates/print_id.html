@@ -23,7 +23,7 @@
   </style>
 </head>
 <body>
-<div class="bar"><button onclick="print()">พิมพ์บัตร</button> <a href="/members/{{ member.id }}">กลับ</a></div>
+<div class="bar"><button onclick="print()">พิมพ์บัตร</button> <a href="/pdf/id/{{ member.id }}">ดาวน์โหลด PDF</a> <a href="/members/{{ member.id }}">กลับ</a></div>
 <div class="card">
   <div>
     {% if photo %}<img class="photo" src="{{ photo }}">{% else %}<div class="photo"></div>{% endif %}

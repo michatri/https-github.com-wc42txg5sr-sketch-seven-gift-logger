@@ -25,7 +25,7 @@
       <td>{{ m.from_church }}</td>
       <td>{{ m.date_out|thai_date }}</td>
       <td>{{ m.to_church }}</td>
-      <td><a href="/moves/{{ m.id }}">แก้ไข</a> · <a href="/moves/{{ m.id }}/print">พิมพ์</a></td>
+      <td><a href="/moves/{{ m.id }}">แก้ไข</a> · <a href="/moves/{{ m.id }}/print">พิมพ์</a> · <a href="/pdf/move/{{ m.id }}">PDF</a></td>
     </tr>
     {% else %}
     <tr><td colspan="7" class="muted">ยังไม่มีรายการย้าย</td></tr>

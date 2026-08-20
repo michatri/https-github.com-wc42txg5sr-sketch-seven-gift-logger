@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}รายงาน PDF{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>ออกรายงาน PDF</h2>
+    <div class="sub">เอกสารแบบเดียวกับ CatholicIDv4.5 บันทึกเป็นไฟล์ PDF ได้ทันที</div>
+  </div>
+</div>
+
+<div class="grid stats">
+  <div class="card stat"><b>{{ stats.members }}</b><span>สัตบุรุษในทะเบียน</span></div>
+  <div class="card stat"><b>{{ stats.churches }}</b><span>วัดในฐานข้อมูล</span></div>
+  <div class="card stat"><b>{{ stats.marriages }}</b><span>ใบแจ้งสมรส</span></div>
+  <div class="card stat"><b>{{ stats.moves }}</b><span>รายการย้าย</span></div>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <h3>รายงานรายชื่อและสรุป</h3>
+  <div class="actions">
+    {% for key, label in list_titles.items() %}
+      <a class="btn gold" href="/pdf/list?mode={{ key }}">{{ label }}</a>
+    {% endfor %}
+    <a class="btn ghost" href="/pdf/churches">รายชื่อวัดทั้งประเทศ</a>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h3>เอกสารรายบุคคล</h3>
+  <p class="muted">เลือกสัตบุรุษแล้วดาวน์โหลดบัตร ใบรับรองศีล หรือประวัติฉบับเต็ม</p>
+  <table>
+    <tr><th>รหัส</th><th>ชื่อ</th><th>PDF</th></tr>
+    {% for m in members %}
+    <tr>
+      <td>{{ m.num }}</td>
+      <td><a href="/members/{{ m.id }}">{{ m|dname }}</a></td>
+      <td class="actions">
+        <a class="btn small gold" href="/pdf/id/{{ m.id }}">บัตร</a>
+        <a class="btn small ghost" href="/pdf/certificate/{{ m.id }}?kind=all">ใบรับรองศีล</a>
+        <a class="btn small ghost" href="/pdf/member/{{ m.id }}">ประวัติ</a>
+        <a class="btn small ghost" href="/pdf/envelope/{{ m.id }}">จ่าหน้าซอง</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="muted">ยังไม่มีข้อมูล</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+{% if marriages %}
+<div class="card" style="margin-top:16px">
+  <h3>ใบแจ้งการสมรส</h3>
+  <table>
+    <tr><th>เลขที่</th><th>เจ้าบ่าว / เจ้าสาว</th><th></th></tr>
+    {% for n in marriages %}
+    <tr>
+      <td>{{ n.notify_no }}</td>
+      <td>{{ n.groom }} · {{ n.bride }}</td>
+      <td><a class="btn small gold" href="/pdf/marriage/{{ n.id }}">ดาวน์โหลด PDF</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+{% if moves %}
+<div class="card" style="margin-top:16px">
+  <h3>เอกสารย้ายวัด</h3>
+  <table>
+    <tr><th>รหัส</th><th></th></tr>
+    {% for mv in moves %}
+    <tr>
+      <td>{{ mv.num }}</td>
+      <td><a class="btn small gold" href="/pdf/move/{{ mv.id }}">ดาวน์โหลด PDF</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}

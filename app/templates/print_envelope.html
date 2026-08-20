@@ -14,7 +14,7 @@
   </style>
 </head>
 <body>
-<div class="bar"><button onclick="print()">พิมพ์จ่าหน้าซอง</button> <a href="/members/{{ member.id }}">กลับ</a></div>
+<div class="bar"><button onclick="print()">พิมพ์จ่าหน้าซอง</button> <a href="/pdf/envelope/{{ member.id }}">ดาวน์โหลด PDF</a> <a href="/members/{{ member.id }}">กลับ</a></div>
 <div class="env">
   <div class="from">
     {{ parish.sen or 'เรียน' }} {{ parish.prefix or 'คุณ' }} {{ full_name }}<br>
