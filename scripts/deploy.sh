@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Deploy Catholic ID Web to a LAN host (default 192.168.10.56).
-# Run this from a machine that can SSH to the parish server.
+# Run this from a PC that already has this git repo, to copy it over SSH.
+# If you are already ON the parish server, use scripts/setup-server.sh instead.
 set -euo pipefail
 
 HOST="${CATHOLIC_HOST:-192.168.10.56}"
@@ -10,6 +11,16 @@ PORT="${CATHOLIC_PORT:-8080}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+if [[ "${1:-}" == "--local" ]] || [[ "${CATHOLIC_LOCAL:-}" == "1" ]]; then
+  exec "$ROOT/scripts/setup-server.sh"
+fi
+
+# Already sitting on the target box (common mistake: run deploy.sh on cameraserver).
+if [[ -f /etc/hostname ]] && grep -qi 'camera\|catholic' /etc/hostname 2>/dev/null; then
+  echo "This looks like the parish server. Installing locally instead of SSH."
+  exec "$ROOT/scripts/setup-server.sh"
+fi
 
 echo "Deploying to ${USER}@${HOST}:${DEST}"
 ssh "${USER}@${HOST}" "mkdir -p '${DEST}'"

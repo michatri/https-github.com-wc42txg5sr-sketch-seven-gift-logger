@@ -36,16 +36,26 @@ python3 -m venv .venv
 docker compose up -d --build
 ```
 
-## Deploy ไปเครื่องวัด (192.168.10.56)
+## ติดตั้งบน cameraserver (192.168.10.56)
 
-เครื่องพัฒนาต้องอยู่ในเครือข่ายเดียวกับเซิร์ฟเวอร์ แล้วรัน:
+`scripts/deploy.sh` ใช้จากเครื่องอื่นเพื่อ **ส่งโค้ดไป** เซิร์ฟเวอร์ ถ้าล็อกอินอยู่บน cameraserver อยู่แล้ว ให้ clone แล้วติดตั้งบนเครื่องนั้นโดยตรง:
 
 ```bash
-chmod +x scripts/deploy.sh
-CATHOLIC_USER=aaa scripts/deploy.sh
+cd /home/aaa
+apt-get update
+apt-get install -y git python3-venv python3-pip
+git clone -b cursor/catholic-id-web-9576 https://github.com/michatri/https-github.com-wc42txg5sr-sketch-seven-gift-logger.git catholic-id
+cd catholic-id
+bash scripts/setup-server.sh
 ```
 
-จากนั้นเปิด http://192.168.10.56:8080
+จากนั้นเปิด http://192.168.10.56:8080 เข้าสู่ระบบด้วย `admin` / `password`
+
+ถ้าต้องการส่งจากเครื่องพัฒนาที่มี repo นี้อยู่แล้ว:
+
+```bash
+bash scripts/deploy.sh
+```
 
 ## ฟังก์ชันหลัก
 
