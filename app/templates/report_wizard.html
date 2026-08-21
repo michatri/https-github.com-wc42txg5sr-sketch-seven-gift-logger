@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}สร้างรายงาน{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>สร้างรายงาน</h2>
+    <div class="sub" id="wizard-step-label">ขั้นที่ 1 จาก 8 — เลือกแหล่งข้อมูล</div>
+  </div>
+  <div class="actions">
+    <span class="save-status" id="save-status"></span>
+    <a class="btn ghost" href="/reports">ยกเลิก</a>
+  </div>
+</div>
+
+<ol class="wizard-steps" id="wizard-nav"></ol>
+<div class="card wizard-card" id="wizard-body"></div>
+<div class="wizard-actions">
+  <button type="button" class="btn ghost" id="btn-prev">ย้อนกลับ</button>
+  <button type="button" class="btn gold" id="btn-next">ถัดไป</button>
+</div>
+<script src="/static/js/report-wizard.js"></script>
+{% endblock %}

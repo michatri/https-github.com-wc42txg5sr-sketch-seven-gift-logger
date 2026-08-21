@@ -44,6 +44,7 @@ from app.pdfs import (
 )
 
 from app.designer import router as designer_router
+from app.reports import router as reports_router
 
 ROOT = Path(__file__).resolve().parent
 UPLOADS = ROOT / "uploads" / "photos"
@@ -56,6 +57,7 @@ app.add_middleware(
     session_cookie="catholicid",
     max_age=60 * 60 * 12,
 )
+app.include_router(reports_router)
 app.include_router(designer_router)
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 app.mount("/photos", StaticFiles(directory=UPLOADS), name="photos")
@@ -770,18 +772,6 @@ def print_move(request: Request, move_id: int):
     if not item:
         return RedirectResponse("/moves", status_code=303)
     return render(request, "print_move.html", item=item, member=member, full_name=display_name(member))
-
-
-@app.get("/reports", response_class=HTMLResponse)
-def reports_page(request: Request):
-    if (redir := require_login(request)):
-        return redir
-    with get_db() as conn:
-        s = stats(conn)
-        members = rows_to_dicts(conn.execute("SELECT id, num, saint_name, first_name, last_name FROM members ORDER BY last_name, first_name").fetchall())
-        marriages = rows_to_dicts(conn.execute("SELECT id, notify_no, groom, bride FROM marriage_notifies ORDER BY notify_no").fetchall())
-        moves = rows_to_dicts(conn.execute("SELECT id, num FROM moves ORDER BY id DESC").fetchall())
-    return render(request, "reports.html", stats=s, members=members, marriages=marriages, moves=moves, cert_titles=CERT_TITLES, list_titles=LIST_TITLES)
 
 
 @app.get("/pdf/id/{member_id}")

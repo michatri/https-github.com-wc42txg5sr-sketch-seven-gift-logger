@@ -6,6 +6,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
 
+from app.report_schema import ensure_report_schema
+
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "data" / "catholic.db"
 
@@ -54,6 +56,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             updated_at TEXT NOT NULL
         )"""
     )
+    ensure_report_schema(conn)
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:

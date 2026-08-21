@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}ออกแบบรายงาน{% endblock %}
+{% block content %}
+<div class="topbar no-print">
+  <div>
+    <h2 id="rd-title">แก้ไขรายงาน</h2>
+    <div class="sub">ลากฟิลด์ลงบนกระดาษ · <span id="rd-status" class="save-status">บันทึกแล้ว</span></div>
+  </div>
+  <div class="actions">
+    <a class="btn ghost" href="/reports">รายการ</a>
+    <a class="btn ghost" id="rd-preview" href="#">ดูตัวอย่าง</a>
+    <a class="btn ghost" id="rd-print" href="#">พิมพ์</a>
+    <button type="button" class="btn gold" id="rd-pdf">ส่งออก PDF</button>
+    <button type="button" class="btn" id="rd-save">บันทึกรายงาน</button>
+  </div>
+</div>
+<div class="rd-shell">
+  <aside class="rd-left card designer-pane">
+    <h3>ข้อมูล</h3>
+    <div id="rd-data"></div>
+    <h3>องค์ประกอบ</h3>
+    <div class="palette" id="rd-tools"></div>
+  </aside>
+  <div class="rd-center">
+    <div class="rd-toolbar no-print">
+      <label>ขนาด</label>
+      <select id="rd-size">
+        <option value="A4">A4</option>
+        <option value="A5">A5</option>
+        <option value="Letter">Letter</option>
+        <option value="Custom">กำหนดเอง</option>
+      </select>
+      <label>แนว</label>
+      <select id="rd-orient">
+        <option value="portrait">แนวตั้ง</option>
+        <option value="landscape">แนวนอน</option>
+      </select>
+      <button type="button" class="btn small ghost" data-align="left">ชิดซ้าย</button>
+      <button type="button" class="btn small ghost" data-align="center">กึ่งกลาง</button>
+      <button type="button" class="btn small ghost" data-align="right">ชิดขวา</button>
+    </div>
+    <div class="page-wrap" id="rd-canvas-wrap"></div>
+  </div>
+  <aside class="rd-right card designer-pane">
+    <h3>คุณสมบัติ</h3>
+    <div id="rd-props" class="muted">เลือกองค์ประกอบบนกระดาษ</div>
+  </aside>
+</div>
+<script type="application/json" id="rd-boot">{{ boot|tojson }}</script>
+<script src="/static/js/report-designer.js"></script>
+{% endblock %}

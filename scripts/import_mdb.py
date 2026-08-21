@@ -252,6 +252,9 @@ CREATE TABLE IF NOT EXISTS report_designs (
 
 def init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    from app.report_schema import ensure_report_schema
+
+    ensure_report_schema(conn)
     conn.commit()
 
 

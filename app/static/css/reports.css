@@ -1,0 +1,98 @@
+.btn, button {
+  border: 0; border-radius: 10px; padding: 9px 14px; cursor: pointer;
+  font-family: inherit; font-size: 14px;
+  background: #6b1d2a; color: #fff; text-decoration: none; display: inline-block;
+}
+.btn.gold { background: #c9a227; color: #4a121c; font-weight: 700; }
+.btn.ghost { background: transparent; color: #6b1d2a; border: 1px solid #e4d8c4; }
+.btn.danger { background: #a33b3b; }
+.btn.small { padding: 6px 10px; font-size: 13px; }
+.save-status { font-size: 13px; color: var(--muted); }
+.save-status.saving { color: var(--gold); }
+.save-status.saved { color: var(--ok); }
+.save-status.dirty { color: var(--danger); }
+
+.wizard-steps {
+  display: flex; gap: 6px; flex-wrap: wrap; padding: 0; margin: 0 0 14px;
+  list-style: none;
+}
+.wizard-steps li {
+  padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line);
+  background: #fff; font-size: 13px; cursor: pointer;
+}
+.wizard-steps li.on { background: var(--burgundy); color: #fff; border-color: var(--burgundy); }
+.wizard-card { min-height: 280px; }
+.wizard-actions { display: flex; justify-content: space-between; margin-top: 14px; }
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.pick-card {
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; cursor: pointer;
+}
+.pick-card.on { border-color: var(--gold); background: #fbf6ea; }
+.dual { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 48px; }
+.field-chip {
+  padding: 6px 10px; border: 1px dashed var(--line); border-radius: 8px; background: #fff; cursor: grab;
+}
+.rel-box { font-family: inherit; background: #fbf6ea; padding: 10px; border-radius: 10px; white-space: pre-wrap; }
+
+.rd-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(420px, 1fr) 250px;
+  gap: 12px;
+  align-items: start;
+}
+.rd-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.rd-toolbar select { width: auto; }
+.tree-table { font-weight: 700; margin-top: 8px; }
+.tree-field {
+  display: block; width: 100%; text-align: left; margin: 3px 0;
+  background: #fff; color: var(--ink); border: 1px solid var(--line);
+  padding: 5px 8px; border-radius: 8px; cursor: grab;
+}
+
+.rp-paper {
+  background: #fffdf8;
+  margin: 0 auto 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  position: relative;
+  color: var(--ink);
+}
+.rp-band {
+  position: relative;
+  border-bottom: 1px dashed var(--gold);
+  background: linear-gradient(180deg, rgba(247,241,230,.4), transparent);
+}
+.rp-band[data-section="detail"] { background: #fff; }
+.rd-band-label {
+  position: absolute; right: 4px; top: 2px; font-size: 10px; color: var(--muted); pointer-events: none;
+}
+.rp-comp { position: absolute; cursor: move; }
+.rp-comp.selected { outline: 1px dashed var(--burgundy); background: rgba(201,162,39,.12); }
+.rp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rp-table th, .rp-table td { border: 1px solid #d8c9a8; padding: 4px 6px; }
+.rp-table th { background: #f7f1e6; color: var(--burgundy); }
+.rp-table tfoot td { font-weight: 700; }
+.rp-group-h { font-weight: 700; color: var(--burgundy); padding: 4px 0; }
+.rp-group-f { text-align: right; padding: 4px 0; }
+.rp-state { padding: 24px; text-align: center; color: var(--muted); }
+.rp-state.error { color: var(--danger); }
+.rp-bar { display: grid; grid-template-columns: 80px 1fr 32px; gap: 6px; align-items: center; font-size: 12px; }
+.rp-bar i { display: block; height: 8px; background: var(--gold); border-radius: 4px; }
+.rp-barcode {
+  letter-spacing: 2px; font-size: 11px; border-top: 10px dotted #2b2118; padding-top: 4px; text-align: center;
+}
+.rp-qr { border: 1px solid var(--line); font-size: 10px; padding: 4px; }
+.rp-pagebreak { border-top: 1px dashed var(--danger); margin: 8px 0; }
+
+.schema-table { font-size: 13px; }
+.star { background: none; color: var(--gold); font-size: 18px; padding: 0 6px; }
+
+@media (max-width: 1100px) {
+  .rd-shell, .dual { grid-template-columns: 1fr; }
+}
+@media print {
+  .sidebar, .no-print, .wizard-actions, .rd-toolbar { display: none !important; }
+  .app { display: block; }
+  .main { padding: 0; }
+  .rp-paper { box-shadow: none; }
+}

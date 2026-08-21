@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}รายงาน{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>{% if scope == 'mine' %}รายงานของฉัน{% elif scope == 'favorites' %}รายงานโปรด{% else %}รายงานทั้งหมด{% endif %}</h2>
+    <div class="sub">สร้างรายงานจากข้อมูลทะเบียนโดยไม่ต้องเขียน SQL</div>
+  </div>
+  <div class="actions">
+    <a class="btn gold" href="/reports/new">+ สร้างรายงาน</a>
+    <a class="btn ghost" href="/reports/library">รายงาน PDF สำเร็จรูป</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="searchbar" id="report-filters">
+    <div>
+      <label>ค้นหา</label>
+      <input type="search" id="q" placeholder="ชื่อหรือคำอธิบาย">
+    </div>
+    <div>
+      <label>สถานะ</label>
+      <select id="status">
+        <option value="">ทั้งหมด</option>
+        <option value="draft">ฉบับร่าง</option>
+        <option value="published">เผยแพร่</option>
+        <option value="archived">เก็บถาวร</option>
+      </select>
+    </div>
+    <div>
+      <label>เรียงลำดับ</label>
+      <select id="sort">
+        <option value="updated_at">วันที่แก้ไข</option>
+        <option value="name">ชื่อรายงาน</option>
+        <option value="created_by">ผู้สร้าง</option>
+        <option value="status">สถานะ</option>
+      </select>
+    </div>
+    <div>
+      <label>ทิศทาง</label>
+      <select id="dir">
+        <option value="desc">ใหม่ → เก่า</option>
+        <option value="asc">เก่า → ใหม่</option>
+      </select>
+    </div>
+    <button type="button" class="btn" id="btn-search">ค้นหา</button>
+  </div>
+  <table class="report-table">
+    <thead>
+      <tr>
+        <th>ชื่อรายงาน</th>
+        <th>คำอธิบาย</th>
+        <th>ผู้สร้าง</th>
+        <th>วันที่แก้ไข</th>
+        <th>สถานะ</th>
+        <th>โปรด</th>
+        <th>การทำงาน</th>
+      </tr>
+    </thead>
+    <tbody id="report-rows">
+      <tr><td colspan="7" class="muted">กำลังโหลด…</td></tr>
+    </tbody>
+  </table>
+</div>
+<script>window.REPORT_SCOPE = {{ scope|tojson }};</script>
+<script src="/static/js/report-list.js"></script>
+{% endblock %}
