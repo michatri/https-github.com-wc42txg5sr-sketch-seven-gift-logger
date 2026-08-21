@@ -43,6 +43,8 @@ from app.pdfs import (
     pdf_response,
 )
 
+from app.designer import router as designer_router
+
 ROOT = Path(__file__).resolve().parent
 UPLOADS = ROOT / "uploads" / "photos"
 UPLOADS.mkdir(parents=True, exist_ok=True)
@@ -54,6 +56,7 @@ app.add_middleware(
     session_cookie="catholicid",
     max_age=60 * 60 * 12,
 )
+app.include_router(designer_router)
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 app.mount("/photos", StaticFiles(directory=UPLOADS), name="photos")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))

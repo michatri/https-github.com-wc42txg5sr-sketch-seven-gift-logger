@@ -7,7 +7,7 @@ from urllib.parse import quote
 from fastapi.responses import Response
 from fpdf import FPDF
 
-from app.db import display_name, thai_date
+from app.db import display_name, format_report_value, thai_date
 
 FONTS = Path(__file__).resolve().parent / "static" / "fonts"
 BURGUNDY = (107, 29, 42)
@@ -403,4 +403,77 @@ def churches_pdf(parish: dict, items: list[dict]) -> bytes:
         for w, cell in zip(col_w, row):
             pdf.cell(w, 6, cell[:40], border=1)
         pdf.ln()
+    return _finish(pdf)
+
+
+def _draw_design_element(pdf: ParishPDF, el: dict[str, Any], record: dict[str, Any]) -> None:
+    x = float(el.get("x") or 15)
+    y = float(el.get("y") or 20)
+    w = float(el.get("w") or 80)
+    h = float(el.get("h") or 8)
+    size = int(el.get("size") or 12)
+    bold = "B" if el.get("bold") else ""
+    align = {"C": "C", "R": "R", "L": "L"}.get(str(el.get("align") or "L"), "L")
+    kind = el.get("type") or "field"
+    if kind == "line":
+        pdf.set_draw_color(*GOLD)
+        pdf.set_line_width(max(0.2, h if h < 2 else 0.4))
+        pdf.line(x, y, x + max(w, 1), y)
+        return
+    if kind == "text":
+        text = str(el.get("text") or "")
+    else:
+        value = format_report_value(record, str(el.get("field") or ""))
+        label = str(el.get("label") or "")
+        text = f"{label}: {value}" if el.get("show_label") and label else value
+    pdf.set_xy(x, y)
+    pdf.set_font("Sarabun", bold, size)
+    pdf.set_text_color(*INK)
+    pdf.multi_cell(max(w, 8), max(h, 5), text, align=align)
+
+
+def design_pdf(parish: dict, title: str, layout: dict[str, Any], records: list[dict[str, Any]]) -> bytes:
+    records = records or [{}]
+    header = bool(layout.get("header", True))
+    orient = "L" if str(layout.get("orientation") or "P").upper().startswith("L") else "P"
+    mode = layout.get("mode") or "form"
+    pdf = ParishPDF(parish, title if header else "", orientation=orient, skip_header=not header)
+    pdf.set_auto_page_break(auto=mode == "list", margin=18)
+    elements = layout.get("elements") or []
+    columns = layout.get("columns") or []
+
+    if mode == "list":
+        pdf.add_page()
+        if columns:
+            usable = pdf.w - 30
+            total_w = sum(float(c.get("w") or 25) for c in columns) or 1
+            widths = [usable * float(c.get("w") or 25) / total_w for c in columns]
+            pdf.set_font("Sarabun", "B", 9)
+            pdf.set_fill_color(247, 241, 230)
+            for w, col in zip(widths, columns):
+                pdf.cell(w, 8, str(col.get("label") or col.get("field") or ""), border=1, fill=True)
+            pdf.ln()
+            pdf.set_font("Sarabun", "", 9)
+            for rec in records:
+                if pdf.get_y() > (pdf.h - 22):
+                    pdf.add_page()
+                    pdf.set_font("Sarabun", "B", 9)
+                    for w, col in zip(widths, columns):
+                        pdf.cell(w, 8, str(col.get("label") or col.get("field") or ""), border=1, fill=True)
+                    pdf.ln()
+                    pdf.set_font("Sarabun", "", 9)
+                for w, col in zip(widths, columns):
+                    pdf.cell(w, 7, format_report_value(rec, str(col.get("field") or ""))[:40], border=1)
+                pdf.ln()
+        else:
+            pdf.set_font("Sarabun", "", 12)
+            pdf.cell(0, 8, "ยังไม่ได้เลือกคอลัมน์ในโหมดรายชื่อ", new_x="LMARGIN", new_y="NEXT")
+        return _finish(pdf)
+
+    for rec in records:
+        pdf.add_page()
+        for el in elements:
+            _draw_design_element(pdf, el, rec)
+    if not records:
+        pdf.add_page()
     return _finish(pdf)

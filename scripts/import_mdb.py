@@ -238,6 +238,15 @@ CREATE INDEX IF NOT EXISTS idx_members_num ON members(num);
 CREATE INDEX IF NOT EXISTS idx_members_gang ON members(gang);
 CREATE INDEX IF NOT EXISTS idx_members_family ON members(from_family, family_no);
 CREATE INDEX IF NOT EXISTS idx_churches_name ON churches(name, gen_name);
+
+CREATE TABLE IF NOT EXISTS report_designs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    source TEXT NOT NULL,
+    layout TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
