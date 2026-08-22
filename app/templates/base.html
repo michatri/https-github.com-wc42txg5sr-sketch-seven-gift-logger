@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Catholic ID{% endblock %} · {{ parish.church_th or 'Catholic ID' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/reports.css">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">✝</div>
+      <div>
+        <h1>Catholic ID</h1>
+        <p>ระบบทะเบียนสัตบุรุษ v4.5</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="sec">หลัก</div>
+      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">แดชบอร์ด</a>
+      <a href="/members" class="{% if request.url.path.startswith('/members') %}active{% endif %}">สัตบุรุษ</a>
+      <a href="/churches" class="{% if request.url.path.startswith('/churches') %}active{% endif %}">รายชื่อวัด</a>
+      <a href="/marriages" class="{% if request.url.path.startswith('/marriages') %}active{% endif %}">ใบแจ้งการสมรส</a>
+      <a href="/moves" class="{% if request.url.path.startswith('/moves') %}active{% endif %}">การย้ายวัด</a>
+      <div class="sec">รายงาน</div>
+      <a href="/reports" class="{% if request.url.path == '/reports' or request.url.path.startswith('/reports?') %}active{% endif %}">รายงานทั้งหมด</a>
+      <a href="/reports/new" class="{% if request.url.path.startswith('/reports/new') %}active{% endif %}">สร้างรายงาน</a>
+      <a href="/reports/mine" class="{% if request.url.path.startswith('/reports/mine') %}active{% endif %}">รายงานของฉัน</a>
+      <a href="/reports/favorites" class="{% if request.url.path.startswith('/reports/favorites') %}active{% endif %}">รายงานโปรด</a>
+      <a href="/reports/sources" class="{% if request.url.path.startswith('/reports/sources') %}active{% endif %}">แหล่งข้อมูล</a>
+      <a href="/reports/library" class="{% if request.url.path.startswith('/reports/library') or request.url.path.startswith('/pdf') %}active{% endif %}">รายงาน PDF สำเร็จรูป</a>
+      <a href="/designer" class="{% if request.url.path.startswith('/designer') %}active{% endif %}">ออกแบบแบบง่าย (เดิม)</a>
+      <a href="/print/list?mode=summary">สรุปข้อมูลสัตบุรุษ</a>
+      <a href="/print/list?mode=gang">รายชื่อตามกลุ่ม</a>
+      <a href="/print/list?mode=family">รายชื่อตามครอบครัว</a>
+      <div class="sec">ระบบ</div>
+      <a href="/settings" class="{% if request.url.path.startswith('/settings') %}active{% endif %}">ข้อมูลวัด / พิมพ์</a>
+      <a href="/logout">ออกจากระบบ</a>
+    </nav>
+  </aside>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="/static/js/app.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

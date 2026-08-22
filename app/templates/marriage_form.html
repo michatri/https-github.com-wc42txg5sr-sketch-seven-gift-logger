@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}ใบแจ้งการสมรส{% endblock %}
+{% block content %}
+<div class="topbar">
+  <h2>{% if is_new %}สร้างเอกสารแจ้งการสมรส{% else %}แก้ไขใบแจ้งเลขที่ {{ item.notify_no }}{% endif %}</h2>
+</div>
+<form method="post" class="card">
+  {% if item.member_id %}<input type="hidden" name="member_id" value="{{ item.member_id }}">{% endif %}
+  <div class="form-grid">
+    <div class="field"><label>เลขที่ใบแจ้ง</label><input name="notify_no" value="{{ item.notify_no or '' }}"></div>
+    <div class="field"><label>เลขที่ทะเบียนสมรส</label><input name="marriage_id" value="{{ item.marriage_id or '' }}"></div>
+    <div class="field"><label>วันที่สมรส</label><input type="date" name="marriage_date" value="{{ item.marriage_date or '' }}"></div>
+    <div class="field span-2"><label>ชื่อเจ้าบ่าว</label><input name="groom" value="{{ item.groom or '' }}"></div>
+    <div class="field"><label>ศาสนาเจ้าบ่าว</label><input name="gr_religion" value="{{ item.gr_religion or 'คาทอลิก' }}"></div>
+    <div class="field"><label>วัดที่ล้างบาป</label><input name="gr_bap_place" value="{{ item.gr_bap_place or '' }}"></div>
+    <div class="field"><label>วันที่ล้างบาป</label><input type="date" name="gr_bap_date" value="{{ item.gr_bap_date or '' }}"></div>
+    <div class="field"><label>เลขที่ล้างบาป</label><input name="gr_bap_no" value="{{ item.gr_bap_no or '' }}"></div>
+    <div class="field"><label>บิดาเจ้าบ่าว</label><input name="groom_fr" value="{{ item.groom_fr or '' }}"></div>
+    <div class="field"><label>ศาสนาบิดา</label><input name="gr_fr_religion" value="{{ item.gr_fr_religion or '' }}"></div>
+    <div class="field"><label>มารดาเจ้าบ่าว</label><input name="groom_mo" value="{{ item.groom_mo or '' }}"></div>
+    <div class="field"><label>ศาสนามารดา</label><input name="gr_mo_religion" value="{{ item.gr_mo_religion or '' }}"></div>
+    <div class="field span-2"><label>ชื่อเจ้าสาว</label><input name="bride" value="{{ item.bride or '' }}"></div>
+    <div class="field"><label>ศาสนาเจ้าสาว</label><input name="br_religion" value="{{ item.br_religion or 'คาทอลิก' }}"></div>
+    <div class="field"><label>วัดที่ล้างบาป</label><input name="br_bap_place" value="{{ item.br_bap_place or '' }}"></div>
+    <div class="field"><label>วันที่ล้างบาป</label><input type="date" name="br_bap_date" value="{{ item.br_bap_date or '' }}"></div>
+    <div class="field"><label>เลขที่ล้างบาป</label><input name="br_bap_no" value="{{ item.br_bap_no or '' }}"></div>
+    <div class="field"><label>บิดาเจ้าสาว</label><input name="bride_fr" value="{{ item.bride_fr or '' }}"></div>
+    <div class="field"><label>ศาสนาบิดา</label><input name="br_fr_religion" value="{{ item.br_fr_religion or '' }}"></div>
+    <div class="field"><label>มารดาเจ้าสาว</label><input name="bride_mo" value="{{ item.bride_mo or '' }}"></div>
+    <div class="field"><label>ศาสนามารดา</label><input name="br_mo_religion" value="{{ item.br_mo_religion or '' }}"></div>
+    <div class="field"><label>พยาน 1</label><input name="witness1" value="{{ item.witness1 or '' }}"></div>
+    <div class="field"><label>พยาน 2</label><input name="witness2" value="{{ item.witness2 or '' }}"></div>
+    <div class="field"><label>พระสงฆ์ผู้ประกอบพิธี</label><input name="priest" value="{{ item.priest or '' }}"></div>
+    <div class="field"><label>ผู้รับรอง</label><input name="certify_by" value="{{ item.certify_by or parish.father or '' }}"></div>
+    <div class="field"><label>วันที่รับรอง</label><input type="date" name="certify_date" value="{{ item.certify_date or '' }}"></div>
+    <div class="field span-2"><label>แจ้งไปยังวัด</label><input name="notify_to" value="{{ item.notify_to or '' }}"></div>
+    <div class="field"><label>วันตอบกลับ</label><input type="date" name="return_date" value="{{ item.return_date or '' }}"></div>
+    <div class="field"><label>ผู้ตอบกลับ</label><input name="return_by" value="{{ item.return_by or '' }}"></div>
+  </div>
+  <div class="actions">
+    <button class="btn gold">บันทึกและพิมพ์</button>
+    <a class="btn ghost" href="/marriages">ยกเลิก</a>
+  </div>
+</form>
+{% if not is_new %}
+<form method="post" action="/marriages/{{ item.id }}/delete" data-confirm="ต้องการลบข้อมูลใบแจ้งการสมรสเลขที่ {{ item.notify_no }} ?" style="margin-top:12px">
+  <button class="btn danger">ลบ</button>
+</form>
+{% endif %}
+{% endblock %}

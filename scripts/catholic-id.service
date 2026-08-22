@@ -1,0 +1,14 @@
+[Unit]
+Description=Catholic ID Web
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/aaa/catholic-id
+Environment=PYTHONPATH=/home/aaa/catholic-id
+Environment=PORT=8222
+ExecStart=/home/aaa/catholic-id/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8222
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>ใบแจ้งการสมรส {{ item.notify_no }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Sarabun, sans-serif; }
+    .sheet { max-width: 820px; margin: 16px auto; border: 6px double #6b1d2a; padding: 28px 36px; }
+    h1 { text-align: center; color: #6b1d2a; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 5px; vertical-align: top; }
+    .bar { padding: 12px; }
+    @media print { .bar { display: none; } }
+  </style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">พิมพ์</button> <a href="/pdf/marriage/{{ item.id }}">ดาวน์โหลด PDF</a> <a href="/marriages">กลับ</a></div>
+<div class="sheet">
+  <div style="text-align:center">✝<br>{{ parish.church_th }}<br>{{ parish.addr_th }}</div>
+  <h1>เอกสารแจ้งการสมรส</h1>
+  <p>Notification of Marriage เลขที่ {{ item.notify_no }} ทะเบียนสมรส {{ item.marriage_id }}</p>
+  <table>
+    <tr><td colspan="2"><b>เจ้าบ่าว</b> {{ item.groom }} ({{ item.gr_religion }})</td></tr>
+    <tr><td>ล้างบาป {{ item.gr_bap_date|thai_date }} ณ {{ item.gr_bap_place }} เลขที่ {{ item.gr_bap_no }}</td><td>บิดา {{ item.groom_fr }} / มารดา {{ item.groom_mo }}</td></tr>
+    <tr><td colspan="2"><b>เจ้าสาว</b> {{ item.bride }} ({{ item.br_religion }})</td></tr>
+    <tr><td>ล้างบาป {{ item.br_bap_date|thai_date }} ณ {{ item.br_bap_place }} เลขที่ {{ item.br_bap_no }}</td><td>บิดา {{ item.bride_fr }} / มารดา {{ item.bride_mo }}</td></tr>
+    <tr><td>วันที่สมรส {{ item.marriage_date|thai_date }}</td><td>พระสงฆ์ {{ item.priest }}</td></tr>
+    <tr><td>พยาน {{ item.witness1 }}</td><td>{{ item.witness2 }}</td></tr>
+    <tr><td>แจ้งไปยัง {{ item.notify_to }}</td><td>ผู้รับรอง {{ item.certify_by }} วันที่ {{ item.certify_date|thai_date }}</td></tr>
+  </table>
+  <p style="margin-top:40px;text-align:right">{{ parish.father }}<br>เจ้าอาวาส</p>
+</div>
+</body>
+</html>

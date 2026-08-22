@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Sarabun, sans-serif; }
+    .bar { padding: 12px; }
+    h1 { color: #6b1d2a; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 6px; font-size: 13px; }
+    .stats { display: flex; gap: 18px; flex-wrap: wrap; margin: 12px 0; }
+    .stats div { border: 1px solid #e4d8c4; padding: 8px 12px; }
+    @media print { .bar { display: none; } }
+  </style>
+</head>
+<body>
+<div class="bar">
+  <button onclick="print()">พิมพ์</button>
+  <a href="/pdf/list?{{ list_query(q=q, field=field, extra=extra, mode=mode) }}">ดาวน์โหลด PDF</a>
+  <a href="/members">กลับ</a>
+  · <a href="/print/list?mode=alpha">อักษร</a>
+  · <a href="/print/list?mode=saint">นักบุญ</a>
+  · <a href="/print/list?mode=gang">กลุ่ม</a>
+  · <a href="/print/list?mode=num">รหัส</a>
+  · <a href="/print/list?mode=family">ครอบครัว</a>
+  · <a href="/print/list?mode=summary">สรุป</a>
+</div>
+<h1>{{ parish.church_th }}</h1>
+<h2>{{ title }}</h2>
+<p>{{ parish.addr_th }} · จำนวน {{ items|length }} รายการ</p>
+{% if mode == 'summary' %}
+<div class="stats">
+  <div>ทั้งหมด {{ stats.members }}</div>
+  <div>สังกัดวัด {{ stats.alive }}</div>
+  <div>ชาย {{ stats.male }}</div>
+  <div>หญิง {{ stats.female }}</div>
+  <div>ครอบครัว {{ stats.families }}</div>
+  <div>กลุ่ม {{ stats.gangs }}</div>
+  <div>ล้างบาป {{ stats.baptized }}</div>
+  <div>ศีลกำลัง {{ stats.confirmed }}</div>
+  <div>สมรส {{ stats.married }}</div>
+  <div>มรณะ {{ stats.deceased }}</div>
+</div>
+{% endif %}
+<table>
+  <tr>
+    <th>รหัส</th><th>ชื่อนักบุญ</th><th>ชื่อ</th><th>นามสกุล</th>
+    <th>กลุ่ม</th><th>ครอบครัว</th><th>วันเกิด</th><th>ที่อยู่</th>
+  </tr>
+  {% for m in items %}
+  <tr>
+    <td>{{ m.num }}</td>
+    <td>{{ m.saint_name }}</td>
+    <td>{{ m.first_name }}</td>
+    <td>{{ m.last_name }}</td>
+    <td>{{ m.gang }}</td>
+    <td>{{ m.family_no or m.from_family }}</td>
+    <td>{{ m.birth_date|thai_date }}</td>
+    <td>{{ m.address1 }} {{ m.address2 }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</body>
+</html>

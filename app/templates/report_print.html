@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>พิมพ์รายงาน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/reports.css">
+  <style>
+    body { margin: 0; font-family: Sarabun, sans-serif; background: #fff; }
+    .no-print { padding: 12px 16px; }
+    @media print {
+      .no-print { display: none !important; }
+      .rp-paper { box-shadow: none; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print actions">
+    <button type="button" class="btn" onclick="window.print()">พิมพ์</button>
+    <a class="btn ghost" href="/reports/{{ report_id }}/preview">กลับไปตัวอย่าง</a>
+  </div>
+  <div id="pv-state">กำลังโหลด…</div>
+  <div id="pv-paper"></div>
+  <script type="application/json" id="pv-boot">{{ boot|tojson }}</script>
+  <script>
+    window.AUTO_PRINT = true;
+  </script>
+  <script src="/static/js/report-preview.js"></script>
+</body>
+</html>

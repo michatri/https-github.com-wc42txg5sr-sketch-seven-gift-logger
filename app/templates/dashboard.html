@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}แดชบอร์ด{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>{{ parish.church_th or 'ทะเบียนสัตบุรุษ' }}</h2>
+    <div class="sub">{{ parish.church_en }} · {{ parish.father }} · แปลงจาก CatholicIDv4.5 + Catholic.mdb</div>
+  </div>
+  <div class="actions">
+    <a class="btn gold" href="/members/new">+ เพิ่มสัตบุรุษ</a>
+    <a class="btn ghost" href="/print/list?mode=summary">พิมพ์สรุป</a>
+    <a class="btn gold" href="/pdf/list?mode=summary">สรุป PDF</a>
+    <a class="btn ghost" href="/reports">รายงานทั้งหมด</a>
+    <a class="btn ghost" href="/reports/library">รายงาน PDF สำเร็จรูป</a>
+  </div>
+</div>
+
+<div class="grid stats">
+  <div class="card stat"><b>{{ stats.alive }}</b><span>สัตบุรุษที่ยังสังกัดวัด</span></div>
+  <div class="card stat"><b>{{ stats.families }}</b><span>ครอบครัว</span></div>
+  <div class="card stat"><b>{{ stats.gangs }}</b><span>กลุ่ม/สาย</span></div>
+  <div class="card stat"><b>{{ stats.churches }}</b><span>วัดในฐานข้อมูล</span></div>
+  <div class="card stat"><b>{{ stats.baptized }}</b><span>รับศีลล้างบาป</span></div>
+  <div class="card stat"><b>{{ stats.confirmed }}</b><span>รับศีลกำลัง</span></div>
+  <div class="card stat"><b>{{ stats.married }}</b><span>รับศีลสมรส</span></div>
+  <div class="card stat"><b>{{ stats.deceased }}</b><span>มรณกรรม</span></div>
+</div>
+
+<div class="grid" style="grid-template-columns: 1.4fr .8fr; margin-top:18px">
+  <div class="card">
+    <h3>รายการล่าสุด</h3>
+    <table>
+      <tr><th>รหัส</th><th>ชื่อ</th><th>กลุ่ม</th><th>อัปเดต</th></tr>
+      {% for m in recent %}
+      <tr>
+        <td>{{ m.num }}</td>
+        <td><a href="/members/{{ m.id }}">{{ m|dname }}</a></td>
+        <td>{{ m.gang or '-' }}</td>
+        <td>{{ m.updated_at|thai_date }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">ยังไม่มีข้อมูล</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  <div class="card">
+    <h3>กลุ่ม/สาย</h3>
+    {% for g in gangs %}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)">
+        <a href="/members?field=gang&q={{ g.gang }}">กลุ่ม {{ g.gang }}</a>
+        <b>{{ g.n }}</b>
+      </div>
+    {% else %}
+      <p class="muted">ยังไม่มีการจัดกลุ่ม</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}แหล่งข้อมูล{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>แหล่งข้อมูล</h2>
+    <div class="sub">อ่านโครงสร้างฐานข้อมูลจริง ไม่ได้ล็อกชื่อตารางไว้ตายตัว — เบราว์เซอร์ไม่เชื่อมต่อไฟล์ MDB</div>
+  </div>
+  <a class="btn gold" href="/reports/new">สร้างรายงาน</a>
+</div>
+<div id="source-root" class="card">กำลังโหลดโครงสร้างฐานข้อมูล…</div>
+<script src="/static/js/report-sources.js"></script>
+{% endblock %}

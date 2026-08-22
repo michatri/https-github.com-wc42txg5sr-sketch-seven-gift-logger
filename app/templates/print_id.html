@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>บัตรประจำตัว {{ full_name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Sarabun, sans-serif; background: #eee; }
+    .bar { padding: 12px; }
+    .card {
+      width: 86mm; height: 54mm; background: #fffdf8;
+      border: 2px solid #6b1d2a; border-radius: 8px; padding: 6mm;
+      display: grid; grid-template-columns: 22mm 1fr; gap: 4mm;
+      box-shadow: 0 8px 20px rgba(0,0,0,.15);
+    }
+    .photo { width: 22mm; height: 28mm; object-fit: cover; border: 1px solid #c9a227; background: #f3efe4; }
+    h1 { font-size: 11px; margin: 0; color: #6b1d2a; }
+    h2 { font-size: 10px; margin: 0; color: #8a6a16; }
+    .name { font-size: 14px; font-weight: 700; margin: 4px 0; }
+    .meta { font-size: 10px; line-height: 1.35; }
+    .cross { float: right; color: #c9a227; }
+    @media print { .bar { display: none; } body { background: #fff; } .card { box-shadow: none; } }
+  </style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">พิมพ์บัตร</button> <a href="/pdf/id/{{ member.id }}">ดาวน์โหลด PDF</a> <a href="/members/{{ member.id }}">กลับ</a></div>
+<div class="card">
+  <div>
+    {% if photo %}<img class="photo" src="{{ photo }}">{% else %}<div class="photo"></div>{% endif %}
+  </div>
+  <div>
+    <span class="cross">✝</span>
+    <h1>{{ parish.church_th }}</h1>
+    <h2>{{ parish.church_en }}</h2>
+    <div class="name">{{ full_name }}</div>
+    <div class="meta">
+      รหัส {{ member.num or '-' }}<br>
+      เกิด {{ member.birth_date|thai_date or '-' }} · {{ member.sex }}<br>
+      ล้างบาป {{ member.btsm_date|thai_date or '-' }}<br>
+      {{ member.address1 }} {{ member.address2 }}
+    </div>
+  </div>
+</div>
+</body>
+</html>

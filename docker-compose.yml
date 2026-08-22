@@ -1,0 +1,12 @@
+services:
+  catholic-id:
+    build: .
+    container_name: catholic-id
+    restart: unless-stopped
+    ports:
+      - "8222:8222"
+    volumes:
+      - ./app/data:/opt/catholic-id/app/data
+      - ./app/uploads:/opt/catholic-id/app/uploads
+    environment:
+      CATHOLIC_SECRET: ${CATHOLIC_SECRET:-catholic-id-web-change-me}

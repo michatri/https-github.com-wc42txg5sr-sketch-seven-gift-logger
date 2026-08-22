@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}การย้ายวัด{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>รายการย้ายเข้า / ย้ายออก</h2>
+    <div class="sub">ตาราง Move · {{ count }} รายการ</div>
+  </div>
+  <a class="btn gold" href="/moves/new">+ สร้างข้อมูลการย้าย</a>
+</div>
+<div class="card">
+  <form class="searchbar" method="get">
+    <div style="flex:1"><label>ค้นหา</label><input type="search" name="q" value="{{ q }}"></div>
+    <button class="btn">ค้นหา</button>
+  </form>
+</div>
+<div class="card" style="margin-top:16px; overflow:auto">
+  <table>
+    <tr><th>รหัส</th><th>ชื่อ</th><th>ย้ายเข้า</th><th>จากวัด</th><th>ย้ายออก</th><th>ไปวัด</th><th></th></tr>
+    {% for m in items %}
+    <tr>
+      <td>{{ m.num }}</td>
+      <td>{{ m.saint_name or '' }} {{ m.first_name or '' }} {{ m.last_name or '' }}</td>
+      <td>{{ m.date_in|thai_date }}</td>
+      <td>{{ m.from_church }}</td>
+      <td>{{ m.date_out|thai_date }}</td>
+      <td>{{ m.to_church }}</td>
+      <td><a href="/moves/{{ m.id }}">แก้ไข</a> · <a href="/moves/{{ m.id }}/print">พิมพ์</a> · <a href="/pdf/move/{{ m.id }}">PDF</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">ยังไม่มีรายการย้าย</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }} · {{ full_name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Sarabun, sans-serif; color: #2b2118; }
+    .sheet { max-width: 800px; margin: 20px auto; border: 8px double #6b1d2a; padding: 32px 40px; background: #fffdf8; }
+    .head { text-align: center; }
+    .head h1 { margin: 4px 0; color: #6b1d2a; font-size: 26px; }
+    .gold { color: #8a6a16; }
+    table { width: 100%; border-collapse: collapse; margin: 18px 0; }
+    td { padding: 6px 4px; vertical-align: top; }
+    .sign { display: flex; justify-content: space-between; margin-top: 48px; }
+    .sign div { width: 45%; text-align: center; }
+    .bar { padding: 12px 24px; }
+    @media print { .bar { display: none; } .sheet { border-width: 6px; } }
+  </style>
+</head>
+<body>
+<div class="bar"><button onclick="print()">พิมพ์เอกสาร</button> <a href="/pdf/certificate/{{ member.id }}?kind={{ kind }}">ดาวน์โหลด PDF</a> <a href="/members/{{ member.id }}">กลับ</a></div>
+<div class="sheet">
+  <div class="head">
+    <div class="gold">✝</div>
+    <div>{{ parish.church_th }}</div>
+    <div>{{ parish.addr_th }}</div>
+    <h1>{{ title }}</h1>
+    <div class="gold">Certificate of Sacrament</div>
+  </div>
+  <p>ข้าพเจ้า {{ parish.father or 'เจ้าอาวาส' }} ขอรับรองว่า</p>
+  <p style="font-size:20px;text-align:center"><b>{{ full_name }}</b></p>
+  <table>
+    <tr><td>รหัสประจำตัว</td><td>{{ member.num or '-' }}</td><td>เพศ</td><td>{{ member.sex }}</td></tr>
+    <tr><td>วันเกิด</td><td>{{ member.birth_date|thai_date or '-' }}</td><td>ศาสนา</td><td>{{ member.religion }}</td></tr>
+    <tr><td>บิดา</td><td>{{ member.papa_st }} {{ member.papa_nm }}</td><td>มารดา</td><td>{{ member.mama_st }} {{ member.mama_nm }}</td></tr>
+    {% if kind in ['baptism','all'] %}
+    <tr><td>ศีลล้างบาป</td><td colspan="3">เลขที่ {{ member.btsm_no or '-' }} วันที่ {{ member.btsm_date|thai_date or '-' }} ณ {{ member.btsm_wat or '-' }} พระสงฆ์ {{ member.btsm_priest or '-' }} ทูนหัว {{ member.btsm_st }} {{ member.btsm_parent }}</td></tr>
+    {% endif %}
+    {% if kind in ['communion','all'] %}
+    <tr><td>ศีลมหาสนิทแรก</td><td colspan="3">เลขที่ {{ member.fm_no or '-' }} วันที่ {{ member.fm_date|thai_date or '-' }} ณ {{ member.fm_wat or '-' }} พระสงฆ์ {{ member.fm_priest or '-' }}</td></tr>
+    {% endif %}
+    {% if kind in ['confirm','all'] %}
+    <tr><td>ศีลกำลัง</td><td colspan="3">เลขที่ {{ member.cnfm_no or '-' }} วันที่ {{ member.cnfm_date|thai_date or '-' }} ณ {{ member.cnfm_wat or '-' }} พระสงฆ์ {{ member.cnfm_priest or '-' }} ทูนหัว {{ member.cnfm_st }} {{ member.cnfm_parent }}</td></tr>
+    {% endif %}
+    {% if kind in ['marriage','all'] %}
+    <tr><td>ศีลสมรส</td><td colspan="3">เลขที่ {{ member.mtmn_no or '-' }} วันที่ {{ member.mtmn_date|thai_date or '-' }} ณ {{ member.mtmn_wat or '-' }} คู่สมรส {{ member.couple_st }} {{ member.couple_nm or '-' }} พยาน {{ member.mtmn_father }} / {{ member.mtmn_mother }}</td></tr>
+    {% endif %}
+    {% if kind == 'death' %}
+    <tr><td>มรณกรรม</td><td colspan="3">เลขที่ {{ member.dead_no or '-' }} วันที่ {{ member.dead_date|thai_date or '-' }} สถานที่ {{ member.keep_place or '-' }}</td></tr>
+    {% endif %}
+  </table>
+  <p>ออกให้ ณ วันที่ {{ issued|thai_date }}</p>
+  <div class="sign">
+    <div>ลงชื่อ .................................<br>เจ้าของประวัติ</div>
+    <div>ลงชื่อ .................................<br>{{ parish.father or 'เจ้าอาวาส' }}</div>
+  </div>
+</div>
+</body>
+</html>

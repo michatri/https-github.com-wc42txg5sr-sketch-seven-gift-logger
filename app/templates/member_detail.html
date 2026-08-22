@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ full_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>{{ full_name }}</h2>
+    <div class="sub">{{ member.num or 'ยังไม่มีรหัส' }} · กลุ่ม {{ member.gang or '-' }} · ครอบครัว {{ member.family_no or member.from_family or '-' }}</div>
+  </div>
+  <div class="actions">
+    <a class="btn gold" href="/members/{{ member.id }}/edit">แก้ไข</a>
+    <form method="post" action="/members/{{ member.id }}/delete" data-confirm="ต้องการลบข้อมูลของ คุณ {{ full_name }} ออกจากทะเบียนสัตบุรุษ?" style="display:inline">
+      <button class="btn danger" type="submit">ลบ</button>
+    </form>
+    <a class="btn ghost" href="/pdf/id/{{ member.id }}">บัตร PDF</a>
+    <a class="btn ghost" href="/pdf/certificate/{{ member.id }}?kind=all">ใบรับรองศีล PDF</a>
+    <a class="btn ghost" href="/pdf/member/{{ member.id }}">ประวัติ PDF</a>
+    <a class="btn ghost" href="/print/id/{{ member.id }}">พิมพ์บัตร</a>
+    <a class="btn ghost" href="/members/new?copy_from={{ member.id }}">เพิ่มคนในบ้านนี้</a>
+    <a class="btn ghost" href="/moves/new?member_id={{ member.id }}">สร้างการย้าย</a>
+    <a class="btn ghost" href="/marriages/new?member_id={{ member.id }}">สร้างใบแจ้งสมรส</a>
+  </div>
+</div>
+
+{% if request.query_params.get('saved') %}<div class="flash">บันทึกข้อมูลสัตบุรุษแล้ว</div>{% endif %}
+
+<div class="grid" style="grid-template-columns: 180px 1fr; margin-bottom:18px">
+  <div class="card" style="text-align:center">
+    {% if photo %}
+      <img class="photo" src="{{ photo }}" alt="รูป">
+    {% else %}
+      <div class="photo" style="display:grid;place-items:center;color:#aaa">ไม่มีรูป</div>
+    {% endif %}
+    <p class="muted">{{ member.sex or '' }} · {{ member.religion or '' }}</p>
+  </div>
+  <div class="card">
+    <div class="form-grid">
+      <div><label>วันเกิด</label><b>{{ member.birth_date|thai_date or '-' }}</b></div>
+      <div><label>อาชีพ</label><b>{{ member.occupation or '-' }}</b></div>
+      <div><label>โทร / อีเมล</label><b>{{ member.tel or '-' }}</b><div class="muted">{{ member.email or '' }}</div></div>
+      <div class="span-2"><label>ที่อยู่</label><b>{{ member.address1 or '' }} {{ member.address2 or '' }}</b></div>
+      <div><label>วัดที่สังกัด</label><b>{{ member.go_church or '-' }}</b></div>
+      <div><label>บิดา</label><b>{{ member.papa_st }} {{ member.papa_nm }}</b></div>
+      <div><label>มารดา</label><b>{{ member.mama_st }} {{ member.mama_nm }}</b></div>
+      <div><label>คู่สมรส</label><b>{{ member.couple_st }} {{ member.couple_nm or '-' }}</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="tabs">
+    <button class="tab active" data-tab="sac" data-group="d" type="button">ศีลศักดิ์สิทธิ์</button>
+    <button class="tab" data-tab="fam" data-group="d" type="button">ครอบครัว</button>
+    <button class="tab" data-tab="mv" data-group="d" type="button">การย้าย</button>
+    <button class="tab" data-tab="dead" data-group="d" type="button">มรณกรรม</button>
+    <button class="tab" data-tab="note" data-group="d" type="button">บันทึก</button>
+  </div>
+
+  <div class="pane active" data-pane="sac" data-group="d">
+    <table>
+      <tr><th>ศีล</th><th>เลขที่</th><th>วันที่</th><th>วัด</th><th>พ่อ/แม่ทูนหัวหรือพยาน</th><th>พระสงฆ์</th></tr>
+      <tr><td>ล้างบาป</td><td>{{ member.btsm_no }}</td><td>{{ member.btsm_date|thai_date }}</td><td>{{ member.btsm_wat }}</td><td>{{ member.btsm_st }} {{ member.btsm_parent }}</td><td>{{ member.btsm_priest }}</td></tr>
+      <tr><td>มหาสนิทแรก</td><td>{{ member.fm_no }}</td><td>{{ member.fm_date|thai_date }}</td><td>{{ member.fm_wat }}</td><td>{{ member.fm_st }} {{ member.fm_parent }}</td><td>{{ member.fm_priest }}</td></tr>
+      <tr><td>กำลัง</td><td>{{ member.cnfm_no }}</td><td>{{ member.cnfm_date|thai_date }}</td><td>{{ member.cnfm_wat }}</td><td>{{ member.cnfm_st }} {{ member.cnfm_parent }}</td><td>{{ member.cnfm_priest }}</td></tr>
+      <tr><td>สมรส</td><td>{{ member.mtmn_no }}</td><td>{{ member.mtmn_date|thai_date }}</td><td>{{ member.mtmn_wat }}</td><td>{{ member.mtmn_father_st }} {{ member.mtmn_father }} / {{ member.mtmn_mother_st }} {{ member.mtmn_mother }}</td><td>{{ member.mtmn_priest }}</td></tr>
+      <tr><td>เจิมคนไข้</td><td></td><td>{{ member.fimn_date|thai_date }}</td><td></td><td></td><td>{{ member.fimn_priest }}</td></tr>
+    </table>
+    <div class="actions" style="margin-top:12px">
+      <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=baptism">พิมพ์ใบล้างบาป</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=baptism">PDF ล้างบาป</a>
+      <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=communion">พิมพ์ใบมหาสนิท</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=communion">PDF มหาสนิท</a>
+      <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=confirm">พิมพ์ใบศีลกำลัง</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=confirm">PDF ศีลกำลัง</a>
+      <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=marriage">พิมพ์ใบสมรส</a>
+      <a class="btn small gold" href="/pdf/certificate/{{ member.id }}?kind=marriage">PDF สมรส</a>
+    </div>
+  </div>
+
+  <div class="pane" data-pane="fam" data-group="d">
+    {% if family %}
+    <table>
+      <tr><th>รหัส</th><th>ชื่อ</th><th>วันเกิด</th><th>ความสัมพันธ์โดยประมาณ</th></tr>
+      {% for f in family %}
+      <tr>
+        <td>{{ f.num }}</td>
+        <td><a href="/members/{{ f.id }}">{{ f|dname }}</a></td>
+        <td>{{ f.birth_date|thai_date }}</td>
+        <td>{{ f.occupation or '' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="muted">ยังไม่พบสมาชิกครอบครัวอื่นที่ใช้รหัสครอบครัวเดียวกัน</p>
+    {% endif %}
+  </div>
+
+  <div class="pane" data-pane="mv" data-group="d">
+    <p>ย้ายเข้า: {{ member.date_in|thai_date or '-' }} จาก {{ member.from_church or '-' }}</p>
+    <p>ย้ายออก: {{ member.date_out|thai_date or '-' }} ไป {{ member.to_church or '-' }}</p>
+    {% if moves %}
+    <table>
+      <tr><th>เข้า</th><th>จากวัด</th><th>ออก</th><th>ไปวัด</th><th></th></tr>
+      {% for mv in moves %}
+      <tr>
+        <td>{{ mv.date_in|thai_date }}</td><td>{{ mv.from_church }}</td>
+        <td>{{ mv.date_out|thai_date }}</td><td>{{ mv.to_church }}</td>
+        <td><a href="/moves/{{ mv.id }}/print">พิมพ์</a></td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </div>
+
+  <div class="pane" data-pane="dead" data-group="d">
+    <p>เลขที่มรณะ: {{ member.dead_no or '-' }} / เลขที่ทางราชการ {{ member.citydead_no or '-' }}</p>
+    <p>วันมรณะ: {{ member.dead_date|thai_date or '-' }} · วันที่เก็บศพ {{ member.keep_date|thai_date or '-' }}</p>
+    <p>สถานที่: {{ member.keep_place or '-' }} · พระสงฆ์ {{ member.keep_priest or '-' }}</p>
+    <p>{{ member.reason or '' }}</p>
+    {% if member.dead_date %}
+    <a class="btn small ghost" href="/print/certificate/{{ member.id }}?kind=death">พิมพ์ใบมรณกรรม</a>
+    {% endif %}
+  </div>
+
+  <div class="pane" data-pane="note" data-group="d">
+    <p>{{ member.note1 or '' }}</p>
+    <p>{{ member.note2 or '' }}</p>
+    <p>{{ member.note3 or '' }}</p>
+    <p>{{ member.note4 or '' }}</p>
+  </div>
+</div>
+
+{% endblock %}

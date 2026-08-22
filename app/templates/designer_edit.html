@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ design.name or 'ออกแบบหน้ารายงาน' }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>ออกแบบหน้ารายงาน</h2>
+    <div class="sub">คลิกฟิลด์จากฐานข้อมูลด้านซ้ายเพื่อวางบนหน้ากระดาษ ลากเพื่อย้ายตำแหน่ง</div>
+  </div>
+  <div class="actions">
+    <a class="btn ghost" href="/designer">รายการรายงาน</a>
+    <button class="btn" type="button" id="btn-save">บันทึก</button>
+    <button class="btn gold" type="button" id="btn-pdf">บันทึกแล้วสร้าง PDF</button>
+  </div>
+</div>
+
+<div class="designer">
+  <aside class="card designer-pane">
+    <div class="field"><label>ชื่อรายงาน</label><input id="report-name" value="{{ design.name or '' }}" placeholder="เช่น ใบรับรองศีลล้างบาป กลุ่ม 3A"></div>
+    <div class="field">
+      <label>ดึงข้อมูลจาก</label>
+      <select id="report-source">
+        {% for key, spec in sources.items() %}
+        <option value="{{ key }}" {% if design.source==key %}selected{% endif %}>{{ spec.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label>รูปแบบ</label>
+      <select id="report-mode">
+        <option value="form">วางฟิลด์ทีละหน้า (เอกสารรายบุคคล)</option>
+        <option value="list">ตารางรายชื่อหลายคน</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>กระดาษ</label>
+      <select id="report-orient">
+        <option value="P">A4 แนวตั้ง</option>
+        <option value="L">A4 แนวนอน</option>
+      </select>
+    </div>
+    <label class="chip" style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" id="report-header" checked> แสดงหัวกระดาษวัด
+    </label>
+    <p class="muted" style="margin:12px 0 6px">ฟิลด์จากฐานข้อมูล — คลิกเพื่อวาง</p>
+    <div id="field-palette" class="palette"></div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn ghost" type="button" id="btn-text">+ ข้อความ</button>
+      <button class="btn ghost" type="button" id="btn-line">+ เส้น</button>
+    </div>
+  </aside>
+
+  <section class="card designer-stage">
+    <div id="list-config" class="list-config" hidden>
+      <p class="muted">โหมดตาราง: คลิกฟิลด์ด้านซ้ายเพื่อเพิ่มเป็นคอลัมน์ แล้วสร้าง PDF เป็นรายชื่อ</p>
+      <div id="column-list"></div>
+    </div>
+    <div id="page-wrap" class="page-wrap">
+      <div id="page" class="page-canvas">
+        <div id="header-band" class="header-band">หัวกระดาษวัด · {{ parish.church_th }}</div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="card designer-pane">
+    <h3>คุณสมบัติช่องที่เลือก</h3>
+    <p id="prop-empty" class="muted">คลิกกล่องบนหน้ากระดาษเพื่อแก้ข้อความ ขนาด และตำแหน่ง</p>
+    <div id="prop-box" hidden>
+      <div class="field"><label>ป้ายชื่อ</label><input id="prop-label"></div>
+      <div class="field"><label>ข้อความคงที่</label><input id="prop-text"></div>
+      <label class="chip" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input type="checkbox" id="prop-show-label"> แสดงป้ายชื่อนำหน้าค่า
+      </label>
+      <div class="field"><label>ขนาดตัวอักษร</label><input id="prop-size" type="number" min="8" max="28" value="12"></div>
+      <div class="field"><label>ความกว้าง (มม.)</label><input id="prop-w" type="number" min="10" max="190"></div>
+      <div class="field"><label>ความสูง (มม.)</label><input id="prop-h" type="number" min="4" max="40"></div>
+      <label class="chip" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input type="checkbox" id="prop-bold"> ตัวหนา
+      </label>
+      <div class="field">
+        <label>จัดแนว</label>
+        <select id="prop-align">
+          <option value="L">ซ้าย</option>
+          <option value="C">กลาง</option>
+          <option value="R">ขวา</option>
+        </select>
+      </div>
+      <button class="btn danger" type="button" id="btn-del">ลบช่องนี้</button>
+    </div>
+    <div class="field" style="margin-top:16px">
+      <label>กรองข้อมูลตอนสร้าง PDF</label>
+      <input id="pdf-q" placeholder="ชื่อ / รหัส / คำค้น">
+    </div>
+    <p id="save-status" class="muted"></p>
+  </aside>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script id="boot" type="application/json">{{ boot|tojson }}</script>
+<script src="/static/js/designer.js"></script>
+{% endblock %}

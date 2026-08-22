@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}ดูตัวอย่างรายงาน{% endblock %}
+{% block content %}
+<div class="topbar no-print">
+  <div>
+    <h2 id="pv-title">ดูตัวอย่าง</h2>
+    <div class="sub">รันชุดข้อมูลแล้วแสดงตามเลย์เอาต์ที่บันทึกไว้</div>
+  </div>
+  <div class="actions">
+    <a class="btn ghost" id="pv-edit" href="#">แก้ไขรายงาน</a>
+    <button type="button" class="btn ghost" id="pv-print">พิมพ์</button>
+    <button type="button" class="btn gold" id="pv-pdf">ส่งออก PDF</button>
+  </div>
+</div>
+<div class="card no-print" id="pv-params"></div>
+<div id="pv-state" class="card" style="margin-top:12px">กำลังโหลด…</div>
+<div class="page-wrap" id="pv-paper" style="margin-top:12px"></div>
+<div class="actions no-print" id="pv-pager" style="margin-top:12px"></div>
+<script type="application/json" id="pv-boot">{{ boot|tojson }}</script>
+<script src="/static/js/report-preview.js"></script>
+{% endblock %}

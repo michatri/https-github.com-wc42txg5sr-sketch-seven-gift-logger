@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}{% if is_new %}เพิ่มสัตบุรุษ{% else %}แก้ไข {{ member.first_name }}{% endif %}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>{% if is_new %}เพิ่มข้อมูลบุคคลใหม่{% else %}แก้ไขข้อมูล {{ member.saint_name }} {{ member.first_name }} {{ member.last_name }}{% endif %}</h2>
+    <div class="sub">รูปแบบรหัสที่แนะนำ: รหัสวัด-ปีรับศีลล้างบาป-เลขล้างบาป เช่น {{ parish.id_prefix or '070104-' }}1987-B9</div>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card">
+  <div class="tabs">
+    <button class="tab active" data-tab="p" data-group="f" type="button">ประวัติ</button>
+    <button class="tab" data-tab="b" data-group="f" type="button">ศีลล้างบาป</button>
+    <button class="tab" data-tab="c" data-group="f" type="button">มหาสนิท / กำลัง</button>
+    <button class="tab" data-tab="m" data-group="f" type="button">ศีลสมรส</button>
+    <button class="tab" data-tab="mv" data-group="f" type="button">การย้าย</button>
+    <button class="tab" data-tab="d" data-group="f" type="button">มรณกรรม / บันทึก</button>
+  </div>
+
+  <div class="pane active" data-pane="p" data-group="f">
+    <div class="form-grid">
+      <div class="field"><label>รหัสประจำตัว (NUM)</label><input name="num" value="{{ member.num or parish.id_prefix or '' }}"></div>
+      <div class="field"><label>ชื่อนักบุญ</label><input name="saint_name" value="{{ member.saint_name or '' }}"></div>
+      <div class="field"><label>ชื่อ</label><input name="first_name" value="{{ member.first_name or '' }}" required></div>
+      <div class="field"><label>นามสกุล</label><input name="last_name" value="{{ member.last_name or '' }}" required></div>
+      <div class="field"><label>ชื่อเดิม</label><input name="old_first_name" value="{{ member.old_first_name or '' }}"></div>
+      <div class="field"><label>นามสกุลเดิม</label><input name="old_last_name" value="{{ member.old_last_name or '' }}"></div>
+      <div class="field"><label>เพศ</label>
+        <select name="sex">
+          <option value="ชาย" {% if member.sex=='ชาย' %}selected{% endif %}>ชาย</option>
+          <option value="หญิง" {% if member.sex=='หญิง' %}selected{% endif %}>หญิง</option>
+        </select>
+      </div>
+      <div class="field"><label>ศาสนา</label><input name="religion" value="{{ member.religion or 'คาทอลิก' }}"></div>
+      <div class="field"><label>วันเกิด</label><input type="date" name="birth_date" value="{{ member.birth_date or '' }}"></div>
+      <div class="field"><label>กลุ่ม/สาย</label><input name="gang" value="{{ member.gang or '' }}"></div>
+      <div class="field"><label>ครอบครัวที่ (from_family)</label><input name="from_family" value="{{ member.from_family or '' }}"></div>
+      <div class="field"><label>เลขที่ครอบครัว (family_No)</label><input name="family_no" value="{{ member.family_no or '' }}"></div>
+      <div class="field span-2"><label>ลักษณะงาน</label><input name="occupation" value="{{ member.occupation or '' }}"></div>
+      <div class="field span-2"><label>วัดที่ไปร่วมพิธี</label><input name="go_church" list="church-names" value="{{ member.go_church or '' }}"></div>
+      <div class="field span-2"><label>ที่อยู่ 1</label><input name="address1" value="{{ member.address1 or '' }}"></div>
+      <div class="field span-2"><label>ที่อยู่ 2</label><input name="address2" value="{{ member.address2 or '' }}"></div>
+      <div class="field"><label>โทรศัพท์</label><input name="tel" value="{{ member.tel or '' }}"></div>
+      <div class="field"><label>อีเมล</label><input name="email" value="{{ member.email or '' }}"></div>
+      <div class="field"><label>นามนักบุญบิดา</label><input name="papa_st" value="{{ member.papa_st or '' }}"></div>
+      <div class="field"><label>ชื่อบิดา</label><input name="papa_nm" value="{{ member.papa_nm or '' }}"></div>
+      <div class="field"><label>ศาสนาบิดา</label><input name="papa_relig" value="{{ member.papa_relig or '' }}"></div>
+      <div class="field"><label>นามนักบุญมารดา</label><input name="mama_st" value="{{ member.mama_st or '' }}"></div>
+      <div class="field"><label>ชื่อมารดา</label><input name="mama_nm" value="{{ member.mama_nm or '' }}"></div>
+      <div class="field"><label>ศาสนามารดา</label><input name="mama_relig" value="{{ member.mama_relig or '' }}"></div>
+      <div class="field"><label>รูปถ่าย (340px ตามโปรแกรมเดิม)</label><input type="file" name="photo" accept="image/*"></div>
+      {% if photo %}<div class="field"><img class="photo" src="{{ photo }}" alt=""></div>{% endif %}
+    </div>
+  </div>
+
+  <div class="pane" data-pane="b" data-group="f">
+    <div class="form-grid">
+      <div class="field"><label>เลขที่ศีลล้างบาป</label><input name="btsm_no" value="{{ member.btsm_no or '' }}"></div>
+      <div class="field"><label>วันที่ล้างบาป</label><input type="date" name="btsm_date" value="{{ member.btsm_date or '' }}"></div>
+      <div class="field"><label>วัดที่ล้างบาป</label><input name="btsm_wat" list="church-names" value="{{ member.btsm_wat or '' }}"></div>
+      <div class="field"><label>พ่อ/แม่ทูนหัว</label><input name="btsm_parent" value="{{ member.btsm_parent or '' }}"></div>
+      <div class="field"><label>นามนักบุญทูนหัว</label><input name="btsm_st" value="{{ member.btsm_st or '' }}"></div>
+      <div class="field"><label>พระสงฆ์ผู้ให้ศีล</label><input name="btsm_priest" value="{{ member.btsm_priest or '' }}"></div>
+    </div>
+  </div>
+
+  <div class="pane" data-pane="c" data-group="f">
+    <h3>ศีลมหาสนิทแรก</h3>
+    <div class="form-grid">
+      <div class="field"><label>เลขที่</label><input name="fm_no" value="{{ member.fm_no or '' }}"></div>
+      <div class="field"><label>วันที่</label><input type="date" name="fm_date" value="{{ member.fm_date or '' }}"></div>
+      <div class="field"><label>วัด</label><input name="fm_wat" list="church-names" value="{{ member.fm_wat or '' }}"></div>
+      <div class="field"><label>พ่อ/แม่ทูนหัว</label><input name="fm_parent" value="{{ member.fm_parent or '' }}"></div>
+      <div class="field"><label>นามนักบุญ</label><input name="fm_st" value="{{ member.fm_st or '' }}"></div>
+      <div class="field"><label>พระสงฆ์</label><input name="fm_priest" value="{{ member.fm_priest or '' }}"></div>
+    </div>
+    <h3>ศีลกำลัง</h3>
+    <div class="form-grid">
+      <div class="field"><label>เลขที่</label><input name="cnfm_no" value="{{ member.cnfm_no or '' }}"></div>
+      <div class="field"><label>วันที่</label><input type="date" name="cnfm_date" value="{{ member.cnfm_date or '' }}"></div>
+      <div class="field"><label>วัด</label><input name="cnfm_wat" list="church-names" value="{{ member.cnfm_wat or '' }}"></div>
+      <div class="field"><label>พ่อ/แม่ทูนหัว</label><input name="cnfm_parent" value="{{ member.cnfm_parent or '' }}"></div>
+      <div class="field"><label>นามนักบุญ</label><input name="cnfm_st" value="{{ member.cnfm_st or '' }}"></div>
+      <div class="field"><label>พระสงฆ์</label><input name="cnfm_priest" value="{{ member.cnfm_priest or '' }}"></div>
+    </div>
+  </div>
+
+  <div class="pane" data-pane="m" data-group="f">
+    <div class="form-grid">
+      <div class="field"><label>เลขที่ทะเบียนสมรส</label><input name="mtmn_no" value="{{ member.mtmn_no or '' }}"></div>
+      <div class="field"><label>วันที่สมรส</label><input type="date" name="mtmn_date" value="{{ member.mtmn_date or '' }}"></div>
+      <div class="field"><label>วัดที่สมรส</label><input name="mtmn_wat" list="church-names" value="{{ member.mtmn_wat or '' }}"></div>
+      <div class="field"><label>พยานฝ่ายบิดา</label><input name="mtmn_father" value="{{ member.mtmn_father or '' }}"></div>
+      <div class="field"><label>นามนักบุญพยานฝ่ายบิดา</label><input name="mtmn_father_st" value="{{ member.mtmn_father_st or '' }}"></div>
+      <div class="field"><label>พยานฝ่ายมารดา</label><input name="mtmn_mother" value="{{ member.mtmn_mother or '' }}"></div>
+      <div class="field"><label>นามนักบุญพยานฝ่ายมารดา</label><input name="mtmn_mother_st" value="{{ member.mtmn_mother_st or '' }}"></div>
+      <div class="field"><label>พระสงฆ์ผู้ประกอบพิธี</label><input name="mtmn_priest" value="{{ member.mtmn_priest or '' }}"></div>
+      <div class="field"><label>ผู้อ้างอิง 1</label><input name="refer1" value="{{ member.refer1 or '' }}"></div>
+      <div class="field"><label>ผู้อ้างอิง 2</label><input name="refer2" value="{{ member.refer2 or '' }}"></div>
+      <div class="field"><label>ชื่อคู่สมรส</label><input name="couple_nm" value="{{ member.couple_nm or '' }}"></div>
+      <div class="field"><label>นามนักบุญคู่สมรส</label><input name="couple_st" value="{{ member.couple_st or '' }}"></div>
+      <div class="field"><label>ศาสนาคู่สมรส</label><input name="couple_religion" value="{{ member.couple_religion or '' }}"></div>
+      <div class="field"><label>รหัสคู่สมรส</label><input name="couple_no" value="{{ member.couple_no or '' }}"></div>
+      <div class="field"><label>วันที่ล้างบาปของคู่สมรส</label><input type="date" name="couple_btsm_date" value="{{ member.couple_btsm_date or '' }}"></div>
+      <div class="field"><label>เลขที่ล้างบาปของคู่สมรส</label><input name="couple_btsm_no" value="{{ member.couple_btsm_no or '' }}"></div>
+      <div class="field"><label>วัดที่ล้างบาปของคู่สมรส</label><input name="couple_btsm_place" list="church-names" value="{{ member.couple_btsm_place or '' }}"></div>
+      <div class="field"><label>วัดของคู่สมรส</label><input name="couple_church" list="church-names" value="{{ member.couple_church or '' }}"></div>
+      <div class="field"><label>บิดาคู่สมรส</label><input name="couple_fr_nm" value="{{ member.couple_fr_nm or '' }}"></div>
+      <div class="field"><label>นามนักบุญบิดาคู่สมรส</label><input name="couple_fr_st" value="{{ member.couple_fr_st or '' }}"></div>
+      <div class="field"><label>ศาสนาบิดาคู่สมรส</label><input name="couple_fr_relig" value="{{ member.couple_fr_relig or '' }}"></div>
+      <div class="field"><label>มารดาคู่สมรส</label><input name="couple_mo_nm" value="{{ member.couple_mo_nm or '' }}"></div>
+      <div class="field"><label>นามนักบุญมารดาคู่สมรส</label><input name="couple_mo_st" value="{{ member.couple_mo_st or '' }}"></div>
+      <div class="field"><label>ศาสนามารดาคู่สมรส</label><input name="couple_mo_relig" value="{{ member.couple_mo_relig or '' }}"></div>
+      <div class="field span-3"><label>หมายเหตุการสมรส</label><textarea name="couple_memo">{{ member.couple_memo or '' }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="pane" data-pane="mv" data-group="f">
+    <p class="muted">การเพิ่ม/แก้ไขรายละเอียดการย้ายให้ทำที่เมนูการย้ายวัดด้วย ช่องนี้เก็บวันที่สังกัดวัดในทะเบียนบุคคล</p>
+    <div class="form-grid">
+      <div class="field"><label>วันที่ย้ายเข้า</label><input type="date" name="date_in" value="{{ member.date_in or '' }}"></div>
+      <div class="field span-2"><label>ย้ายมาจากวัด</label><input name="from_church" list="church-names" value="{{ member.from_church or '' }}"></div>
+      <div class="field"><label>วันที่ย้ายออก</label><input type="date" name="date_out" value="{{ member.date_out or '' }}"></div>
+      <div class="field span-2"><label>ย้ายไปวัด</label><input name="to_church" list="church-names" value="{{ member.to_church or '' }}"></div>
+    </div>
+  </div>
+
+  <div class="pane" data-pane="d" data-group="f">
+    <div class="form-grid">
+      <div class="field"><label>วันที่เจิมคนไข้</label><input type="date" name="fimn_date" value="{{ member.fimn_date or '' }}"></div>
+      <div class="field"><label>พระสงฆ์ผู้เจิม</label><input name="fimn_priest" value="{{ member.fimn_priest or '' }}"></div>
+      <div class="field"><label>เลขที่มรณะ</label><input name="dead_no" value="{{ member.dead_no or '' }}"></div>
+      <div class="field"><label>เลขที่มรณะทางราชการ</label><input name="citydead_no" value="{{ member.citydead_no or '' }}"></div>
+      <div class="field"><label>วันมรณะ</label><input type="date" name="dead_date" value="{{ member.dead_date or '' }}"></div>
+      <div class="field"><label>วันที่เก็บศพ</label><input type="date" name="keep_date" value="{{ member.keep_date or '' }}"></div>
+      <div class="field"><label>สถานที่เก็บศพ</label><input name="keep_place" value="{{ member.keep_place or '' }}"></div>
+      <div class="field"><label>พระสงฆ์</label><input name="keep_priest" value="{{ member.keep_priest or '' }}"></div>
+      <div class="field span-3"><label>สาเหตุ</label><textarea name="reason">{{ member.reason or '' }}</textarea></div>
+      <div class="field span-3"><label>บันทึก 1</label><textarea name="note1">{{ member.note1 or '' }}</textarea></div>
+      <div class="field span-3"><label>บันทึก 2</label><textarea name="note2">{{ member.note2 or '' }}</textarea></div>
+      <div class="field span-3"><label>บันทึก 3</label><textarea name="note3">{{ member.note3 or '' }}</textarea></div>
+      <div class="field span-3"><label>บันทึก 4</label><textarea name="note4">{{ member.note4 or '' }}</textarea></div>
+    </div>
+  </div>
+
+  <datalist id="church-names">
+    {% for c in churches %}
+      <option value="{{ c.gen_name or c.name }}">{{ c.id }} {{ c.name }}</option>
+    {% endfor %}
+  </datalist>
+
+  <div class="actions form-actions-sticky">
+    <button class="btn gold" type="submit">{% if is_new %}เพิ่มสัตบุรุษ{% else %}บันทึกการแก้ไข{% endif %}</button>
+    <a class="btn ghost" href="{% if is_new %}/members{% else %}/members/{{ member.id }}{% endif %}">ยกเลิก</a>
+    {% if not is_new %}
+    <button class="btn danger" type="submit" form="delete-member">ลบรายการนี้</button>
+    {% endif %}
+  </div>
+</form>
+{% if not is_new %}
+<form id="delete-member" method="post" action="/members/{{ member.id }}/delete" data-confirm="ต้องการลบข้อมูลของ คุณ {{ member.first_name }} {{ member.last_name }} ออกจากทะเบียนสัตบุรุษ?"></form>
+{% endif %}
+{% endblock %}

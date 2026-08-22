@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}ออกแบบหน้ารายงาน{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>ออกแบบหน้ารายงาน</h2>
+    <div class="sub">ตั้งชื่อรายงาน ดึงฟิลด์จากฐานข้อมูลมาวางบนหน้ากระดาษ แล้วสร้าง PDF</div>
+  </div>
+  <a class="btn gold" href="/designer/new">+ สร้างรายงานใหม่</a>
+</div>
+
+<div class="card">
+  <p class="muted">เลือกแหล่งข้อมูลตอนสร้างใหม่ แล้วคลิกฟิลด์ด้านซ้ายเพื่อวางบนหน้า A4</p>
+  <div class="actions" style="margin-bottom:14px">
+    {% for key, spec in sources.items() %}
+      <a class="btn ghost" href="/designer/new?source={{ key }}">ใหม่จาก{{ spec.label }}</a>
+    {% endfor %}
+  </div>
+  <table>
+    <tr><th>ชื่อรายงาน</th><th>แหล่งข้อมูล</th><th>รูปแบบ</th><th>จำนวนช่อง</th><th>อัปเดต</th><th></th></tr>
+    {% for d in items %}
+    <tr>
+      <td><a href="/designer/{{ d.id }}"><b>{{ d.name }}</b></a></td>
+      <td>{{ d.source_label }}</td>
+      <td>{{ d.mode }}</td>
+      <td>{{ d.field_count }}</td>
+      <td>{{ d.updated_at }}</td>
+      <td class="actions">
+        <a class="btn small gold" href="/designer/{{ d.id }}/pdf">PDF</a>
+        <a class="btn small ghost" href="/designer/{{ d.id }}">แก้ไข</a>
+        <form method="post" action="/designer/{{ d.id }}/delete" data-confirm="ลบรายงาน {{ d.name }} ?" style="display:inline">
+          <button class="btn small danger" type="submit">ลบ</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">ยังไม่มีรายงานที่ออกแบบเอง — กดสร้างรายงานใหม่</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

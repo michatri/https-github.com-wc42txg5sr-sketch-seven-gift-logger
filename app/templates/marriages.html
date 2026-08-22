@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}ใบแจ้งการสมรส{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h2>เอกสารแจ้งการสมรส</h2>
+    <div class="sub">ตาราง MarriageNotify · {{ count }} รายการ</div>
+  </div>
+  <a class="btn gold" href="/marriages/new">+ สร้างเอกสารแจ้งการสมรส</a>
+</div>
+<div class="card">
+  <form class="searchbar" method="get">
+    <div>
+      <label>ค้นหาด้วย</label>
+      <select name="field">
+        <option value="groom" {% if field=='groom' %}selected{% endif %}>ชื่อเจ้าบ่าว</option>
+        <option value="bride" {% if field=='bride' %}selected{% endif %}>ชื่อเจ้าสาว</option>
+        <option value="notify_no" {% if field=='notify_no' %}selected{% endif %}>เลขที่ใบแจ้ง</option>
+        <option value="marriage_id" {% if field=='marriage_id' %}selected{% endif %}>เลขที่ทะเบียนสมรส</option>
+        <option value="witness" {% if field=='witness' %}selected{% endif %}>ชื่อพยาน</option>
+        <option value="priest" {% if field=='priest' %}selected{% endif %}>พระสงฆ์</option>
+      </select>
+    </div>
+    <div style="flex:1"><label>ข้อความ</label><input type="search" name="q" value="{{ q }}"></div>
+    <button class="btn">ค้นหา</button>
+  </form>
+</div>
+<div class="card" style="margin-top:16px; overflow:auto">
+  <table>
+    <tr><th>เลขที่</th><th>ทะเบียนสมรส</th><th>วันที่</th><th>เจ้าบ่าว</th><th>เจ้าสาว</th><th>แจ้งไปยัง</th><th></th></tr>
+    {% for n in items %}
+    <tr>
+      <td>{{ n.notify_no }}</td>
+      <td>{{ n.marriage_id }}</td>
+      <td>{{ n.marriage_date|thai_date }}</td>
+      <td>{{ n.groom }}</td>
+      <td>{{ n.bride }}</td>
+      <td>{{ n.notify_to }}</td>
+      <td>
+        <a href="/marriages/{{ n.id }}">แก้ไข</a> ·
+        <a href="/marriages/{{ n.id }}/print">พิมพ์</a> ·
+        <a href="/pdf/marriage/{{ n.id }}">PDF</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="muted">ยังไม่มีใบแจ้ง</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}
