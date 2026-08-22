@@ -8,6 +8,9 @@
   </div>
   <div class="actions">
     <a class="btn gold" href="/members/{{ member.id }}/edit">แก้ไข</a>
+    <form method="post" action="/members/{{ member.id }}/delete" data-confirm="ต้องการลบข้อมูลของ คุณ {{ full_name }} ออกจากทะเบียนสัตบุรุษ?" style="display:inline">
+      <button class="btn danger" type="submit">ลบ</button>
+    </form>
     <a class="btn ghost" href="/pdf/id/{{ member.id }}">บัตร PDF</a>
     <a class="btn ghost" href="/pdf/certificate/{{ member.id }}?kind=all">ใบรับรองศีล PDF</a>
     <a class="btn ghost" href="/pdf/member/{{ member.id }}">ประวัติ PDF</a>
@@ -17,6 +20,8 @@
     <a class="btn ghost" href="/marriages/new?member_id={{ member.id }}">สร้างใบแจ้งสมรส</a>
   </div>
 </div>
+
+{% if request.query_params.get('saved') %}<div class="flash">บันทึกข้อมูลสัตบุรุษแล้ว</div>{% endif %}
 
 <div class="grid" style="grid-template-columns: 180px 1fr; margin-bottom:18px">
   <div class="card" style="text-align:center">
@@ -124,7 +129,4 @@
   </div>
 </div>
 
-<form method="post" action="/members/{{ member.id }}/delete" data-confirm="ต้องการลบข้อมูลของ คุณ {{ full_name }} ?" style="margin-top:18px">
-  <button class="btn danger" type="submit">ลบรายการนี้</button>
-</form>
 {% endblock %}

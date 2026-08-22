@@ -27,6 +27,63 @@ def test_member_search(client):
     r = client.get("/members", params={"q": "แสนสุข", "field": "last_name"})
     assert r.status_code == 200
     assert "070104-1987-B9" in r.text
+    assert "เพิ่มสัตบุรุษ" in r.text
+    assert "แก้ไข" in r.text
+    assert "ลบ" in r.text
+
+
+def test_member_create_edit_delete(client):
+    login(client)
+    created = client.post(
+        "/members/new",
+        data={
+            "first_name": "มารีอา",
+            "last_name": "ทดสอบ",
+            "saint_name": "มารีย์",
+            "sex": "หญิง",
+            "religion": "คาทอลิก",
+            "num": "070104-2026-B1",
+            "gang": "1A",
+        },
+        follow_redirects=False,
+    )
+    assert created.status_code == 303
+    loc = created.headers["location"]
+    assert loc.startswith("/members/")
+    member_id = loc.split("/")[2].split("?")[0]
+
+    detail = client.get(f"/members/{member_id}")
+    assert "มารีอา" in detail.text
+    assert "แก้ไข" in detail.text
+    assert "ลบ" in detail.text
+
+    edited = client.post(
+        f"/members/{member_id}/edit",
+        data={
+            "first_name": "มารีอา",
+            "last_name": "แก้ไขแล้ว",
+            "saint_name": "มารีย์",
+            "sex": "หญิง",
+            "religion": "คาทอลิก",
+            "num": "070104-2026-B1",
+            "gang": "1A",
+        },
+        follow_redirects=False,
+    )
+    assert edited.status_code == 303
+    after = client.get(f"/members/{member_id}")
+    assert "แก้ไขแล้ว" in after.text
+
+    listed = client.get("/members")
+    assert "มารีอา" in listed.text
+    assert f"/members/{member_id}/edit" in listed.text
+    assert f"/members/{member_id}/delete" in listed.text
+
+    deleted = client.post(f"/members/{member_id}/delete", follow_redirects=False)
+    assert deleted.status_code == 303
+    gone = client.get(deleted.headers["location"])
+    assert "มารีอา" not in gone.text
+    assert "ลบรายการออกจากทะเบียนแล้ว" in gone.text
 
 
 def test_health(client):

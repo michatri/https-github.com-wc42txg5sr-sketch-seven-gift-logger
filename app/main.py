@@ -257,7 +257,7 @@ async def member_create(request: Request, photo: UploadFile = File(None)):
             values,
         )
     save_photo(mid, photo)
-    return RedirectResponse(f"/members/{mid}", status_code=303)
+    return RedirectResponse(f"/members/{mid}?saved=1", status_code=303)
 
 
 @app.get("/members/{member_id}", response_class=HTMLResponse)
@@ -322,7 +322,7 @@ async def member_update(request: Request, member_id: int, photo: UploadFile = Fi
         values = [data.get(f) for f in MEMBER_FIELDS] + [today(), member_id]
         conn.execute(f"UPDATE members SET {sets} WHERE id = ?", values)
     save_photo(member_id, photo)
-    return RedirectResponse(f"/members/{member_id}", status_code=303)
+    return RedirectResponse(f"/members/{member_id}?saved=1", status_code=303)
 
 
 @app.post("/members/{member_id}/delete")
@@ -330,11 +330,12 @@ def member_delete(request: Request, member_id: int):
     if (redir := require_login(request)):
         return redir
     with get_db() as conn:
+        conn.execute("UPDATE marriage_notifies SET member_id = NULL WHERE member_id = ?", (member_id,))
         conn.execute("DELETE FROM moves WHERE member_id = ?", (member_id,))
         conn.execute("DELETE FROM members WHERE id = ?", (member_id,))
     for old in UPLOADS.glob(f"{member_id}.*"):
         old.unlink(missing_ok=True)
-    return RedirectResponse("/members", status_code=303)
+    return RedirectResponse("/members?deleted=1", status_code=303)
 
 
 @app.get("/churches", response_class=HTMLResponse)

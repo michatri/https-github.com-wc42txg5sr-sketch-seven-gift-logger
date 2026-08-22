@@ -7,11 +7,14 @@
     <div class="sub">พบ {{ count }} รายการ · ค้นหาแบบเดียวกับ CatholicIDv4.5</div>
   </div>
   <div class="actions">
-    <a class="btn gold" href="/members/new">+ เพิ่มบุคคลใหม่</a>
+    <a class="btn gold" href="/members/new">+ เพิ่มสัตบุรุษ</a>
     <a class="btn ghost" href="/print/list?{{ list_query(q=q, field=field, extra=extra, mode='alpha') }}">พิมพ์รายชื่อ</a>
     <a class="btn gold" href="/pdf/list?{{ list_query(q=q, field=field, extra=extra, mode='alpha') }}">ดาวน์โหลด PDF</a>
   </div>
 </div>
+
+{% if request.query_params.get('saved') %}<div class="flash">บันทึกข้อมูลสัตบุรุษแล้ว</div>{% endif %}
+{% if request.query_params.get('deleted') %}<div class="flash">ลบรายการออกจากทะเบียนแล้ว</div>{% endif %}
 
 <div class="card">
   <form class="searchbar" method="get">
@@ -57,7 +60,7 @@
 <div class="card" style="margin-top:16px; overflow:auto">
   <table>
     <tr>
-      <th>รหัส</th><th>ชื่อนักบุญ</th><th>ชื่อ-นามสกุล</th><th>กลุ่ม</th><th>ครอบครัว</th><th>ที่อยู่</th><th>สถานะ</th>
+      <th>รหัส</th><th>ชื่อนักบุญ</th><th>ชื่อ-นามสกุล</th><th>กลุ่ม</th><th>ครอบครัว</th><th>ที่อยู่</th><th>สถานะ</th><th>การทำงาน</th>
     </tr>
     {% for m in items %}
     <tr>
@@ -72,9 +75,16 @@
         {% elif m.date_out %}<span class="badge moved">ย้ายออก</span>
         {% else %}<span class="badge">สังกัดวัด</span>{% endif %}
       </td>
+      <td class="actions" style="white-space:nowrap">
+        <a class="btn small ghost" href="/members/{{ m.id }}">ดู</a>
+        <a class="btn small gold" href="/members/{{ m.id }}/edit">แก้ไข</a>
+        <form method="post" action="/members/{{ m.id }}/delete" data-confirm="ต้องการลบ {{ m.first_name }} {{ m.last_name }} ออกจากทะเบียนสัตบุรุษ?" style="display:inline">
+          <button class="btn small danger" type="submit">ลบ</button>
+        </form>
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="7" class="muted">ไม่พบข้อมูล</td></tr>
+    <tr><td colspan="8" class="muted">ไม่พบข้อมูล — <a href="/members/new">เพิ่มสัตบุรุษ</a></td></tr>
     {% endfor %}
   </table>
 </div>

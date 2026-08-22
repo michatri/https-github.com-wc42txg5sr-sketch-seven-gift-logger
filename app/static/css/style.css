@@ -187,6 +187,16 @@ tr:hover td { background: #fbf6ea; }
 @media (max-width: 1200px) {
   .designer { grid-template-columns: 1fr; }
 }
+.form-actions-sticky {
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  padding: 14px 0 4px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+td.actions form { display: inline; }
+
 @media print {
   .sidebar, .no-print { display: none !important; }
   .app { display: block; }

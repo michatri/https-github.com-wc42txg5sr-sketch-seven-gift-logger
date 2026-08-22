@@ -150,9 +150,15 @@
     {% endfor %}
   </datalist>
 
-  <div class="actions" style="margin-top:16px">
-    <button class="btn gold" type="submit">บันทึก</button>
+  <div class="actions form-actions-sticky">
+    <button class="btn gold" type="submit">{% if is_new %}เพิ่มสัตบุรุษ{% else %}บันทึกการแก้ไข{% endif %}</button>
     <a class="btn ghost" href="{% if is_new %}/members{% else %}/members/{{ member.id }}{% endif %}">ยกเลิก</a>
+    {% if not is_new %}
+    <button class="btn danger" type="submit" form="delete-member">ลบรายการนี้</button>
+    {% endif %}
   </div>
 </form>
+{% if not is_new %}
+<form id="delete-member" method="post" action="/members/{{ member.id }}/delete" data-confirm="ต้องการลบข้อมูลของ คุณ {{ member.first_name }} {{ member.last_name }} ออกจากทะเบียนสัตบุรุษ?"></form>
+{% endif %}
 {% endblock %}
