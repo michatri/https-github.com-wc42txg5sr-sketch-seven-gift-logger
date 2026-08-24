@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <string.h>
 #if __has_include(<esp_mac.h>)
 #include <esp_mac.h>
 #endif
@@ -243,7 +244,14 @@ void refresh() {
 
 void printMac() {
   uint8_t mac[6];
-  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  memset(mac, 0, 6);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  WiFi.STA.begin();
+  delay(200);
+#endif
+  if (esp_wifi_get_mac(WIFI_IF_STA, mac) != ESP_OK) {
+    esp_efuse_mac_get_default(mac);
+  }
   Serial.print("WiFi MAC ");
   for (int i = 0; i < 6; i++) {
     if (i > 0) {
@@ -255,6 +263,8 @@ void printMac() {
     Serial.print(mac[i], HEX);
   }
   Serial.println();
+  Serial.print("AP MAC ");
+  Serial.println(WiFi.softAPmacAddress());
 }
 
 void setupEspNow() {

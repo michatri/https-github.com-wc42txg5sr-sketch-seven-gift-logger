@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <string.h>
 #if __has_include(<esp_mac.h>)
 #include <esp_mac.h>
 #endif
@@ -98,14 +99,38 @@ void setupPanel() {
   panel->clearScreen();
 }
 
+void printMac() {
+  uint8_t mac[6];
+  memset(mac, 0, 6);
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  WiFi.STA.begin();
+  delay(200);
+#endif
+  if (esp_wifi_get_mac(WIFI_IF_STA, mac) != ESP_OK) {
+    esp_efuse_mac_get_default(mac);
+  }
+  Serial.print("WiFi MAC ");
+  for (int i = 0; i < 6; i++) {
+    if (i > 0) {
+      Serial.print(":");
+    }
+    if (mac[i] < 16) {
+      Serial.print("0");
+    }
+    Serial.print(mac[i], HEX);
+  }
+  Serial.println();
+  Serial.print("AP MAC ");
+  Serial.println(WiFi.softAPmacAddress());
+}
+
 void setupEspNow() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP("ESP-HUB75", NULL, 1);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   Serial.print("WiFi name ");
   Serial.println("ESP-HUB75");
-  Serial.print("MAC ");
-  Serial.println(WiFi.macAddress());
+  printMac();
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP-NOW fail");
     return;
