@@ -2,6 +2,7 @@
  * ESP32 + LCD 16x2 + Keypad 4x3
  * กดตัวเลขได้สูงสุด 6 หลัก
  *
+ * ไฟล์เดียว วางใน Arduino IDE ได้เลย ไม่ต้องมีไฟล์อื่น
  * ไม่ต้องติดตั้งไลบรารีเพิ่ม ใช้ได้เลยหลังติดตั้งบอร์ด ESP32
  *
  * ปุ่ม: 0-9 พิมพ์, * ลบ, # ยืนยัน
@@ -14,12 +15,60 @@
  */
 
 #include <Wire.h>
-#include "DigitInput.h"
 
 #define USE_I2C_LCD 1
 #define LED_PIN 2
 #define SERIAL_BAUD 115200
 #define CONFIRM_HOLD_MS 2000
+#define DIGIT_INPUT_MAX 6
+
+enum DigitInputResult {
+  DIGIT_INPUT_OK = 0,
+  DIGIT_INPUT_IGNORED_FULL,
+  DIGIT_INPUT_IGNORED_EMPTY,
+  DIGIT_INPUT_CONFIRMED
+};
+
+struct DigitInput {
+  char value[DIGIT_INPUT_MAX + 1];
+  size_t length;
+};
+
+void digitInputClear(DigitInput *input) {
+  input->length = 0;
+  input->value[0] = '\0';
+}
+
+void digitInputInit(DigitInput *input) {
+  digitInputClear(input);
+}
+
+DigitInputResult digitInputAppend(DigitInput *input, char digit) {
+  if (digit < '0' || digit > '9') {
+    return DIGIT_INPUT_IGNORED_EMPTY;
+  }
+  if (input->length >= DIGIT_INPUT_MAX) {
+    return DIGIT_INPUT_IGNORED_FULL;
+  }
+  input->value[input->length++] = digit;
+  input->value[input->length] = '\0';
+  return DIGIT_INPUT_OK;
+}
+
+DigitInputResult digitInputBackspace(DigitInput *input) {
+  if (input->length == 0) {
+    return DIGIT_INPUT_IGNORED_EMPTY;
+  }
+  input->value[--input->length] = '\0';
+  return DIGIT_INPUT_OK;
+}
+
+DigitInputResult digitInputConfirm(const DigitInput *input) {
+  if (input->length == 0) {
+    return DIGIT_INPUT_IGNORED_EMPTY;
+  }
+  return DIGIT_INPUT_CONFIRMED;
+}
 
 static const int LCD_SDA_PIN = 21;
 static const int LCD_SCL_PIN = 22;
