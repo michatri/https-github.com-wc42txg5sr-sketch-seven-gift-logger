@@ -57,6 +57,13 @@ char textBuf[MAX_CHARS + 1];
 byte textLen = 0;
 bool nowOk = false;
 
+String macStr(const uint8_t *mac) {
+  char s[18];
+  sprintf(s, "%02X:%02X:%02X:%02X:%02X:%02X",
+          mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(s);
+}
+
 String macCompact(const uint8_t *mac) {
   char s[13];
   sprintf(s, "%02X%02X%02X%02X%02X%02X",
