@@ -214,17 +214,8 @@ void showPrompt() {
   lcdAt(0, 0);
   lcdPrint("Enter number");
   lcdAt(0, 1);
-  if (screenLen == 0) {
-    lcdPrint("______");
-    return;
-  }
-  lcdPrint(screen);
-  byte remain = MAX_DIGITS - groupLen;
-  if (screenLen + remain > LCD_COLS) {
-    remain = LCD_COLS - screenLen;
-  }
-  for (byte i = 0; i < remain; i++) {
-    lcdChar('_');
+  if (screenLen > 0) {
+    lcdPrint(screen);
   }
 }
 
