@@ -1,1 +1,20 @@
-# https-github.com-wc42txg5sr-sketch-seven-gift-logger
+# ESP-NOW Page Number Display
+
+ระบบส่งเลขหน้าหนังสือจากคีย์แพด ไปยังจอ LED P4 ผ่าน ESP-NOW
+
+## คีย์แพด (ฝั่งส่ง)
+
+| ปุ่ม | หน้าที่ |
+| --- | --- |
+| `0`–`9` | พิมพ์ตัวเลข (สูงสุด 5 ตัว รวมช่องว่าง) แล้วส่งขึ้นจอใหญ่ทันที |
+| `*` | ช่องว่าง แล้วส่งข้อความปัจจุบันขึ้นจอใหญ่ |
+| `#` | เคลียร์จอ LED ทุกจอให้มืด (`CLEAR`) |
+
+## ไฟล์
+
+- `sender/sender.ino` — ESP32 + LCD I2C + คีย์แพด 4x3
+- `receiver/receiver.ino` — ESP32-S3 + แผง HUB75 64×32 (Adafruit Protomatter)
+
+ทั้งสองฝั่งล็อก Wi-Fi ช่อง 1 ให้ตรงกัน
+
+เปิดจอที่ 3 ได้โดย uncomment `display3` ในฝั่งส่ง
