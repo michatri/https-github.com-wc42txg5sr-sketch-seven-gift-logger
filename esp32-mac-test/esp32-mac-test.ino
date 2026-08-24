@@ -17,13 +17,26 @@ void dump(const char *name, const uint8_t *m) {
   Serial.println();
 }
 
+void blinkPin(int pin) {
+  pinMode(pin, OUTPUT);
+  for (int i = 0; i < 6; i++) {
+    digitalWrite(pin, i % 2);
+    delay(120);
+  }
+}
+
 void setup() {
+  blinkPin(2);
+  blinkPin(48);
+
   Serial.begin(115200);
-  delay(2000);
+  delay(2500);
   Serial.println();
-  Serial.println("MAC TEST V2");
+  Serial.println("==== MAC TEST V2 ====");
+  Serial.println("if you see this, new code is on the board");
   Serial.print("chip ");
   Serial.println(ESP.getChipModel());
+  Serial.flush();
 
   uint8_t mac[6];
   memset(mac, 0, 6);
@@ -45,12 +58,19 @@ void setup() {
 
   Serial.print("WiFi.macAddress ");
   Serial.println(WiFi.macAddress());
+  Serial.print("softAP MAC ");
+  WiFi.softAP("MAC-TEST", NULL, 1);
+  delay(200);
+  Serial.println(WiFi.softAPmacAddress());
 
   memset(mac, 0, 6);
   Serial.print("get_mac err ");
   Serial.println((int)esp_wifi_get_mac(WIFI_IF_STA, mac));
   dump("get_mac ", mac);
+  Serial.println("==== MAC TEST END ====");
+  Serial.flush();
 }
 
 void loop() {
+  delay(1000);
 }
