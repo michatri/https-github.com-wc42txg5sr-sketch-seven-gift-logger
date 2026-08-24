@@ -15,7 +15,7 @@ char keymap[ROWS][COLS] = {
   {'7', '8', '9'},
   {'*', '0', '#'}
 };
-byte rowPins[ROWS] = {13, 32, 14, 27};
+byte rowPins[ROWS] = {4, 12, 14, 5};
 byte colPins[COLS] = {26, 25, 33};
 
 char screen[LCD_COLS + 1];
