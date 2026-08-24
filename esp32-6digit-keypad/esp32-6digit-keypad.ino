@@ -1,4 +1,7 @@
 #include <Wire.h>
+#include <WiFi.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
 
 #define LED_PIN 2
 #define MAX_DIGITS 6
@@ -17,6 +20,8 @@ char keymap[ROWS][COLS] = {
 };
 byte rowPins[ROWS] = {4, 12, 14, 5};
 byte colPins[COLS] = {26, 25, 33};
+
+uint8_t hubAddr[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 char screen[LCD_COLS + 1];
 byte screenLen = 0;
@@ -219,6 +224,37 @@ void showPrompt() {
   }
 }
 
+void sendToHub() {
+  char msg[17];
+  memset(msg, 0, sizeof(msg));
+  memcpy(msg, screen, screenLen);
+  esp_now_send(hubAddr, (uint8_t *)msg, sizeof(msg));
+  Serial.print("HUB ");
+  Serial.println(msg);
+}
+
+void refresh() {
+  showPrompt();
+  sendToHub();
+}
+
+void setupEspNow() {
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW fail");
+    return;
+  }
+  esp_now_peer_info_t peer;
+  memset(&peer, 0, sizeof(peer));
+  memcpy(peer.peer_addr, hubAddr, 6);
+  peer.channel = 1;
+  peer.encrypt = false;
+  esp_now_add_peer(&peer);
+  Serial.println("ESP-NOW ready");
+}
+
 void showHello() {
   lcdClear();
   lcdAt(0, 0);
@@ -230,20 +266,20 @@ void showHello() {
 void handleKey(char key) {
   if (key >= '0' && key <= '9') {
     addDigit(key);
-    showPrompt();
+    refresh();
     return;
   }
 
   if (key == '*') {
     clearScreen();
     Serial.println("CLEAR");
-    showPrompt();
+    refresh();
     return;
   }
 
   if (key == '#') {
     addSpace();
-    showPrompt();
+    refresh();
   }
 }
 
@@ -255,6 +291,7 @@ void setup() {
 
   initKeys();
   clearScreen();
+  setupEspNow();
   Wire.begin(SDA_PIN, SCL_PIN);
   Wire.setClock(50000);
   delay(200);
@@ -265,9 +302,10 @@ void setup() {
     Serial.println("LCD OK");
     showHello();
     delay(1500);
-    showPrompt();
+    refresh();
   } else {
     Serial.println("use Serial only");
+    refresh();
   }
 }
 
