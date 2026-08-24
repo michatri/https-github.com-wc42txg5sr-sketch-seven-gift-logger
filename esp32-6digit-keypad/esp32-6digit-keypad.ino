@@ -1,42 +1,28 @@
 /*
  * ESP32 + LCD 16x2 + Keypad 4x3
- * รับตัวเลขได้สูงสุด 6 หลัก แล้วแสดงบนจอ
+ * กดตัวเลขได้สูงสุด 6 หลัก
  *
- * ปุ่ม:
- *   0-9  = พิมพ์ตัวเลข (สูงสุด 6 หลัก)
- *   *    = ลบตัวสุดท้าย
- *   #    = ยืนยันค่าที่พิมพ์
+ * ไม่ต้องติดตั้งไลบรารีเพิ่ม ใช้ได้เลยหลังติดตั้งบอร์ด ESP32
  *
- * ไลบรารีใน Arduino IDE:
- *   - Keypad by Mark Stanley, Alexander Brevig
- *   - LiquidCrystal I2C by Frank de Brabander  (เมื่อใช้จอ I2C)
+ * ปุ่ม: 0-9 พิมพ์, * ลบ, # ยืนยัน
+ *
+ * ถ้าจอว่าง:
+ *   1) ต้องกด Upload ก่อน ต่อสายอย่างเดียวจอจะไม่ขึ้น
+ *   2) ดูไฟ LED บนบอร์ด (GPIO 2) ว่ากระพริบหรือไม่
+ *   3) เปิด Serial Monitor 115200 แล้วกดปุ่ม EN บนบอร์ด
+ *   4) หมุนสกรูสีน้ำเงินหลังจอ (contrast)
  */
 
-#include <Keypad.h>
+#include <Wire.h>
 #include "DigitInput.h"
 
 #define USE_I2C_LCD 1
+#define LED_PIN 2
+#define SERIAL_BAUD 115200
+#define CONFIRM_HOLD_MS 2000
 
-#if USE_I2C_LCD
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-#else
-#include <LiquidCrystal.h>
-#endif
-
-static const uint32_t SERIAL_BAUD = 115200;
-static const uint32_t CONFIRM_HOLD_MS = 2000;
-
-#if USE_I2C_LCD
 static const int LCD_SDA_PIN = 21;
 static const int LCD_SCL_PIN = 22;
-static const uint8_t LCD_ADDR_PRIMARY = 0x27;
-static const uint8_t LCD_ADDR_FALLBACK = 0x3F;
-LiquidCrystal_I2C *lcd = nullptr;
-#else
-// RS, E, D4, D5, D6, D7
-LiquidCrystal lcd(4, 16, 17, 18, 19, 23);
-#endif
 
 const byte ROWS = 4;
 const byte COLS = 3;
@@ -47,116 +33,239 @@ char keys[ROWS][COLS] = {
   {'*', '0', '#'}
 };
 
-// คีย์แพด 4x3 ขาจากซ้ายไปขวา: R1 R2 R3 R4 C1 C2 C3
+// ขาคีย์แพดซ้ายไปขวา: R1 R2 R3 R4 C1 C2 C3
 byte rowPins[ROWS] = {13, 12, 14, 27};
 byte colPins[COLS] = {26, 25, 33};
-
-Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
 DigitInput input;
 bool showingResult = false;
 uint32_t resultShownAt = 0;
+bool lcdReady = false;
+uint8_t lcdAddr = 0;
+uint8_t lcdBacklight = 0x08;
+uint32_t lastHeartbeatMs = 0;
+uint32_t lastStatusMs = 0;
+bool ledOn = false;
 
+#if !USE_I2C_LCD
+#include <LiquidCrystal.h>
+LiquidCrystal parallelLcd(4, 16, 17, 18, 19, 23);
+#endif
+
+bool i2cWriteRaw(uint8_t addr, uint8_t data) {
+  Wire.beginTransmission(addr);
+  Wire.write(data);
+  return Wire.endTransmission() == 0;
+}
+
+void lcdPulse(uint8_t data) {
+  i2cWriteRaw(lcdAddr, data | 0x04 | lcdBacklight);
+  delayMicroseconds(2);
+  i2cWriteRaw(lcdAddr, (data & ~0x04) | lcdBacklight);
+  delayMicroseconds(50);
+}
+
+void lcdWrite4(uint8_t nibble, bool rs) {
+  uint8_t data = (nibble & 0x0F) << 4;
+  if (rs) {
+    data |= 0x01;
+  }
+  data |= lcdBacklight;
+  lcdPulse(data);
+}
+
+void lcdCommand(uint8_t value) {
+  lcdWrite4(value >> 4, false);
+  lcdWrite4(value & 0x0F, false);
+}
+
+void lcdWriteChar(char value) {
+  lcdWrite4((uint8_t)value >> 4, true);
+  lcdWrite4((uint8_t)value & 0x0F, true);
+}
+
+void lcdClearScreen() {
+  if (!lcdReady) {
+    return;
+  }
 #if USE_I2C_LCD
-void scanI2C() {
-  Serial.println(F("Scanning I2C..."));
+  lcdCommand(0x01);
+  delay(3);
+#else
+  parallelLcd.clear();
+#endif
+}
+
+void lcdAt(uint8_t col, uint8_t row) {
+  if (!lcdReady) {
+    return;
+  }
+#if USE_I2C_LCD
+  lcdCommand(0x80 | (row == 0 ? col : (0x40 + col)));
+#else
+  parallelLcd.setCursor(col, row);
+#endif
+}
+
+void lcdText(const char *text) {
+  if (!lcdReady) {
+    return;
+  }
+#if USE_I2C_LCD
+  while (*text) {
+    lcdWriteChar(*text++);
+  }
+#else
+  parallelLcd.print(text);
+#endif
+}
+
+uint8_t findLcdAddress() {
+  static const uint8_t candidates[] = {
+    0x27, 0x3F, 0x26, 0x25, 0x24, 0x23, 0x22, 0x21, 0x20,
+    0x3E, 0x3D, 0x3C, 0x3B, 0x3A, 0x39, 0x38
+  };
+  for (uint8_t i = 0; i < sizeof(candidates); i++) {
+    Wire.beginTransmission(candidates[i]);
+    if (Wire.endTransmission() == 0) {
+      return candidates[i];
+    }
+  }
+  return 0;
+}
+
+void scanAllI2C() {
+  Serial.println("Scanning I2C on SDA=21 SCL=22 ...");
   uint8_t found = 0;
   for (uint8_t addr = 1; addr < 127; addr++) {
     Wire.beginTransmission(addr);
     if (Wire.endTransmission() == 0) {
-      Serial.printf("  found device at 0x%02X\n", addr);
+      Serial.printf("  found 0x%02X\n", addr);
       found++;
     }
   }
   if (found == 0) {
-    Serial.println(F("  no I2C device found (check SDA/SCL/VCC/GND)"));
+    Serial.println("  NO I2C DEVICE. Check VCC GND SDA SCL.");
   }
 }
 
-bool probeI2CAddress(uint8_t addr) {
-  Wire.beginTransmission(addr);
-  return Wire.endTransmission() == 0;
-}
-
-void initLcd() {
-  uint8_t addr = LCD_ADDR_PRIMARY;
-  if (!probeI2CAddress(addr) && probeI2CAddress(LCD_ADDR_FALLBACK)) {
-    addr = LCD_ADDR_FALLBACK;
+bool initI2CLcd() {
+  delay(100);
+  lcdAddr = findLcdAddress();
+  if (lcdAddr == 0) {
+    Serial.println("LCD I2C not found");
+    return false;
   }
 
-  lcd = new LiquidCrystal_I2C(addr, 16, 2);
-  lcd->init();
-  lcd->backlight();
-  lcd->clear();
-  Serial.printf("LCD I2C address: 0x%02X\n", addr);
+  Serial.printf("LCD I2C address 0x%02X\n", lcdAddr);
+  i2cWriteRaw(lcdAddr, lcdBacklight);
+  delay(50);
+
+  lcdWrite4(0x03, false);
+  delay(5);
+  lcdWrite4(0x03, false);
+  delayMicroseconds(150);
+  lcdWrite4(0x03, false);
+  delayMicroseconds(150);
+  lcdWrite4(0x02, false);
+
+  lcdCommand(0x28);
+  lcdCommand(0x08);
+  lcdCommand(0x01);
+  delay(3);
+  lcdCommand(0x06);
+  lcdCommand(0x0C);
+  return true;
 }
 
-#define LCD_CLEAR() lcd->clear()
-#define LCD_SET_CURSOR(col, row) lcd->setCursor((col), (row))
-#define LCD_PRINT(msg) lcd->print(msg)
-#else
-void initLcd() {
-  lcd.begin(16, 2);
-  lcd.clear();
+void initKeypad() {
+  for (byte r = 0; r < ROWS; r++) {
+    pinMode(rowPins[r], OUTPUT);
+    digitalWrite(rowPins[r], HIGH);
+  }
+  for (byte c = 0; c < COLS; c++) {
+    pinMode(colPins[c], INPUT_PULLUP);
+  }
 }
 
-#define LCD_CLEAR() lcd.clear()
-#define LCD_SET_CURSOR(col, row) lcd.setCursor((col), (row))
-#define LCD_PRINT(msg) lcd.print(msg)
-#endif
+char readKeypad() {
+  static char held = 0;
+  char found = 0;
+
+  for (byte r = 0; r < ROWS; r++) {
+    digitalWrite(rowPins[r], LOW);
+    delayMicroseconds(20);
+    for (byte c = 0; c < COLS; c++) {
+      if (digitalRead(colPins[c]) == LOW) {
+        found = keys[r][c];
+      }
+    }
+    digitalWrite(rowPins[r], HIGH);
+  }
+
+  if (found == 0) {
+    held = 0;
+    return 0;
+  }
+  if (found == held) {
+    return 0;
+  }
+  delay(25);
+  held = found;
+  return found;
+}
 
 void renderPrompt() {
-  LCD_CLEAR();
-  LCD_SET_CURSOR(0, 0);
-  LCD_PRINT(F("Enter number"));
-  LCD_SET_CURSOR(0, 1);
+  lcdClearScreen();
+  lcdAt(0, 0);
+  lcdText("Enter number");
+  lcdAt(0, 1);
   if (input.length == 0) {
-    LCD_PRINT(F("______"));
+    lcdText("______");
     return;
   }
-
-  LCD_PRINT(input.value);
-  for (size_t i = input.length; i < DIGIT_INPUT_MAX; i++) {
-    LCD_PRINT('_');
+  lcdText(input.value);
+  char pad[8];
+  size_t remain = DIGIT_INPUT_MAX - input.length;
+  for (size_t i = 0; i < remain; i++) {
+    pad[i] = '_';
   }
-}
-
-void renderFullWarning() {
-  LCD_SET_CURSOR(0, 1);
-  LCD_PRINT(F("Full (6 digits)"));
-}
-
-void renderNeedDigits() {
-  LCD_SET_CURSOR(0, 1);
-  LCD_PRINT(F("Need 1-6 digits "));
+  pad[remain] = '\0';
+  lcdText(pad);
 }
 
 void renderConfirmed() {
-  LCD_CLEAR();
-  LCD_SET_CURSOR(0, 0);
-  LCD_PRINT(F("Confirmed"));
-  LCD_SET_CURSOR(0, 1);
-  LCD_PRINT(input.value);
+  lcdClearScreen();
+  lcdAt(0, 0);
+  lcdText("Confirmed");
+  lcdAt(0, 1);
+  lcdText(input.value);
+}
+
+void showSplash() {
+  lcdClearScreen();
+  lcdAt(0, 0);
+  lcdText("HELLO ESP32");
+  lcdAt(0, 1);
+  lcdText("LCD OK 123456");
 }
 
 void appendDigit(char digit) {
-  const DigitInputResult result = digitInputAppend(&input, digit);
-  if (result == DIGIT_INPUT_IGNORED_FULL) {
-    Serial.println(F("IGNORED: already 6 digits"));
-    renderFullWarning();
+  if (digitInputAppend(&input, digit) == DIGIT_INPUT_IGNORED_FULL) {
+    Serial.println("IGNORED: already 6 digits");
+    lcdAt(0, 1);
+    lcdText("Full (6 digits)");
     delay(400);
     renderPrompt();
     return;
   }
-
   Serial.printf("DIGIT: %c  VALUE: %s\n", digit, input.value);
   renderPrompt();
 }
 
 void deleteLastDigit() {
-  const DigitInputResult result = digitInputBackspace(&input);
-  if (result == DIGIT_INPUT_IGNORED_EMPTY) {
-    Serial.println(F("CLEAR"));
+  if (digitInputBackspace(&input) == DIGIT_INPUT_IGNORED_EMPTY) {
+    Serial.println("CLEAR");
   } else {
     Serial.printf("BACKSPACE  VALUE: %s\n", input.value);
   }
@@ -165,13 +274,13 @@ void deleteLastDigit() {
 
 void confirmInput() {
   if (digitInputConfirm(&input) != DIGIT_INPUT_CONFIRMED) {
-    Serial.println(F("CONFIRM ignored: empty"));
-    renderNeedDigits();
+    Serial.println("CONFIRM ignored: empty");
+    lcdAt(0, 1);
+    lcdText("Need 1-6 digits");
     delay(700);
     renderPrompt();
     return;
   }
-
   Serial.printf("CONFIRM: %s\n", input.value);
   renderConfirmed();
   showingResult = true;
@@ -188,7 +297,6 @@ void handleKey(char key) {
   if (showingResult) {
     resetEntry();
   }
-
   if (key >= '0' && key <= '9') {
     appendDigit(key);
     return;
@@ -202,29 +310,69 @@ void handleKey(char key) {
   }
 }
 
+void heartbeat() {
+  uint32_t now = millis();
+  uint32_t interval = lcdReady ? 500 : 150;
+  if (now - lastHeartbeatMs < interval) {
+    return;
+  }
+  lastHeartbeatMs = now;
+  ledOn = !ledOn;
+  digitalWrite(LED_PIN, ledOn ? HIGH : LOW);
+
+  if (!lcdReady && (now - lastStatusMs >= 2000)) {
+    lastStatusMs = now;
+    Serial.println("WAITING: LCD not found. Open Serial 115200. Adjust contrast. Check SDA=21 SCL=22 VCC GND.");
+  }
+}
+
 void setup() {
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+
   Serial.begin(SERIAL_BAUD);
-  delay(200);
+  delay(300);
   Serial.println();
-  Serial.println(F("ESP32 6-digit keypad ready"));
-  Serial.println(F("Keys: 0-9 enter, * delete, # confirm"));
+  Serial.println("================================");
+  Serial.println("ESP32 6-digit keypad starting");
+  Serial.println("LED on GPIO2 should blink");
+  Serial.println("================================");
+
+  initKeypad();
+  digitInputInit(&input);
 
 #if USE_I2C_LCD
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
-  scanI2C();
+  Wire.setClock(50000);
+  delay(200);
+  scanAllI2C();
+  lcdReady = initI2CLcd();
+#else
+  parallelLcd.begin(16, 2);
+  lcdReady = true;
 #endif
-  initLcd();
 
-  digitInputInit(&input);
-  renderPrompt();
+  if (lcdReady) {
+    Serial.println("LCD ready: you should see HELLO ESP32");
+    showSplash();
+    delay(2000);
+    renderPrompt();
+  } else {
+    Serial.println("LCD not ready. Keypad still works in Serial Monitor.");
+    Serial.println("Type on keypad and watch this window.");
+  }
+
+  Serial.println("Keys: 0-9 enter, * delete, # confirm");
 }
 
 void loop() {
+  heartbeat();
+
   if (showingResult && (millis() - resultShownAt >= CONFIRM_HOLD_MS)) {
     resetEntry();
   }
 
-  const char key = keypad.getKey();
+  const char key = readKeypad();
   if (key) {
     Serial.printf("KEY: %c\n", key);
     handleKey(key);
