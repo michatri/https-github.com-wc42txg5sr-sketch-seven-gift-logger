@@ -2,6 +2,9 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#if __has_include(<esp_mac.h>)
+#include <esp_mac.h>
+#endif
 
 #define LED_PIN 2
 #define MAX_DIGITS 6
@@ -238,14 +241,29 @@ void refresh() {
   sendToHub();
 }
 
+void printMac() {
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  Serial.print("WiFi MAC ");
+  for (int i = 0; i < 6; i++) {
+    if (i > 0) {
+      Serial.print(":");
+    }
+    if (mac[i] < 16) {
+      Serial.print("0");
+    }
+    Serial.print(mac[i], HEX);
+  }
+  Serial.println();
+}
+
 void setupEspNow() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP("ESP-KEYPAD", NULL, 1);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
   Serial.print("WiFi name ");
   Serial.println("ESP-KEYPAD");
-  Serial.print("MAC ");
-  Serial.println(WiFi.macAddress());
+  printMac();
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP-NOW fail");
     return;

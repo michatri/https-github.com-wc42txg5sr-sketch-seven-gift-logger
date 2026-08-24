@@ -1,6 +1,9 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#if __has_include(<esp_mac.h>)
+#include <esp_mac.h>
+#endif
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 
 #define PANEL_W 64
