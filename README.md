@@ -1,63 +1,79 @@
-# ESP32 + LCD 16×2 + Keypad 3×4 ผ่าน I2C
+# ESP32 + PCF8574 + Keypad 4×3 + LCD 16×2
 
-สเก็ตช์ตามโค้ดที่ส่งมา: จอ LCD I2C ที่ `0x27` และคีย์แพด 3×4 ผ่าน PCF8574 ที่ `0x20` บนบัสเดียวกัน
+การต่อสายแบบนี้:
+
+```
+ESP32
+  GPIO 21  SDA ──┬── LCD 16×2 แบบ I2C     PCF8574 ใน backpack   address 0x27
+  GPIO 22  SCL ──┤
+  3.3V / GND  ───┤
+                 └── PCF8574 (ตัวแยก)      ต่อคีย์แพดเมมเบรน 4×3   address 0x20
+                       P0–P3 = แถว
+                       P4–P6 = คอลัมน์
+```
+
+จอ 16×2 ที่ซื้อแบบ I2C **มีชิป PCF8574 ติดมาที่แผงด้านหลังอยู่แล้ว**  
+คีย์แพด 4×3 ต้องใช้ **PCF8574 อีกตัว** เพราะชิปหนึ่งมีแค่ 8 พิน — จอกินครบ 8 พินของ backpack ไปแล้ว
+
+บนบัส I2C จึงมี PCF8574 สองตัว address คนละค่า (`0x27` กับ `0x20`) ไม่ใช่ชิปเดียวขับทั้งจอและคีย์แพด
 
 ไฟล์อัปโหลด: [`esp32_lcd_keypad_i2c/esp32_lcd_keypad_i2c.ino`](esp32_lcd_keypad_i2c/esp32_lcd_keypad_i2c.ino)
+
+---
+
+## ตารางต่อสาย
+
+| จาก | ไป | หมายเหตุ |
+|---|---|---|
+| ESP32 GPIO 21 | SDA ของจอ **และ** SDA ของ PCF8574 คีย์แพด | ต่อขนาน |
+| ESP32 GPIO 22 | SCL ของจอ **และ** SCL ของ PCF8574 คีย์แพด | ต่อขนาน |
+| ESP32 3.3V | VCC จอ และ VCC PCF8574 คีย์แพด | **อย่าใช้ 5V เข้าขา ESP32** |
+| ESP32 GND | GND จอ และ GND PCF8574 คีย์แพด | GND ต้องร่วมกัน |
+
+### PCF8574 ตัวที่ต่อคีย์แพด 4×3
+
+จัมเปอร์ address ต่อ A0=A1=A2 ลง GND → ได้ `0x20`
+
+| พิน PCF8574 | ไปที่คีย์แพด |
+|---|---|
+| P0 | แถว 1 (`1 2 3`) |
+| P1 | แถว 2 (`4 5 6`) |
+| P2 | แถว 3 (`7 8 9`) |
+| P3 | แถว 4 (`* 0 #`) |
+| P4 | คอลัมน์ 1 (`1 4 7 *`) |
+| P5 | คอลัมน์ 2 (`2 5 8 0`) |
+| P6 | คอลัมน์ 3 (`3 6 9 #`) |
+| P7 | ไม่ใช้ |
+
+ถ้าตัวเลขสลับกัน ให้สลับ `rowPins` / `colPins` ในสเก็ตช์
+
+### ถ้าสแกนไม่เจอ address ที่คาดไว้
+
+| ชิป | A0 A1 A2 = GND | Address ที่มักเจอ |
+|---|---|---|
+| PCF8574 บนจอ | มักลอย/ดึงขึ้น | `0x27` |
+| PCF8574A บนจอ | ลอย | `0x3F` |
+| PCF8574 คีย์แพด | GND ทั้งสาม | `0x20` |
+| PCF8574A คีย์แพด | GND ทั้งสาม | `0x38` |
+
+แก้ `#define LCD_ADDR` หรือ `#define KEYPAD_ADDR` ตามที่ Serial แสดงตอนบูต
+
+---
 
 ## ไลบรารี
 
 ติดตั้งจาก Arduino Library Manager:
 
-| ไลบรารี | ใช้ทำอะไร |
-|---|---|
-| **LiquidCrystal I2C** (Frank de Brabander) | ขับจอ 16×2 |
-| **Keypad** (Mark Stanley, Alexander Brevig) | สแกนเมทริกซ์ + debounce |
+- **LiquidCrystal I2C** (Frank de Brabander) — ขับจอผ่าน PCF8574 backpack
+- **Keypad** (Mark Stanley) — สแกนเมทริกซ์
 
-`Keypad_I2C` ของ Joe Young **อยู่ในโฟลเดอร์สเก็ตช์แล้ว** ไม่ต้องติดตั้งเพิ่ม
+`Keypad_I2C` อยู่ในโฟลเดอร์สเก็ตช์แล้ว ต้องมี `#include <Keypad.h>` ก่อน `Keypad_I2C.h`
 
-จุดสำคัญ: ต้องมี `#include <Keypad.h>` ก่อน `Keypad_I2C.h` ไม่งั้นจะ error `makeKeymap was not declared` / `Keypad does not name a type`
-
-```cpp
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-#include <Keypad.h>      // ต้องมีบรรทัดนี้
-#include <Keypad_I2C.h>
-```
-
-## Address และพิน I2C
-
-| อุปกรณ์ | Address | หมายเหตุ |
-|---|---|---|
-| LCD backpack (PCF8574) | `0x27` | ถ้าไม่ติดลอง `0x3F` |
-| Keypad (PCF8574) | `0x20` | A0=A1=A2 ต่อ GND |
-| SDA | GPIO 21 | |
-| SCL | GPIO 22 | |
-
-จ่าย PCF8574 คีย์แพดที่ **3.3V** — GPIO ESP32 ไม่ทน 5V ต้องมี GND ร่วมกันทั้งบอร์ด
-
-### แมปคีย์แพดเข้า PCF8574
-
-```
-P0 P1 P2 P3  = แถว 1 2 3 4     →  123 / 456 / 789 / *0#
-P4 P5 P6     = คอลัมน์ 1 2 3   →  147* / 2580 / 369#
-P7           ไม่ใช้
-```
+---
 
 ## พฤติกรรม
 
-- ตอนบูตพิมพ์ `ESP32 Keypad Test` ที่บรรทัดบนจอ
-- กดปุ่มแล้วแสดง `Key Pressed: X` ที่บรรทัดล่าง และพิมพ์ `Pressed: X` ใน Serial (115200)
-- `getKey()` คืนค่าครั้งเดียวตอนกดลง (มี debounce ในไลบรารี)
+- ตอนบูตสแกน I2C ทาง Serial 115200 แล้วพิมพ์ `ESP32+PCF8574` ที่บรรทัดบนจอ
+- กดปุ่มคีย์แพด 4×3 แล้วแสดง `Key Pressed: X` ที่บรรทัดล่าง
 
-`lcd.init()` ของบางเวอร์ชันเรียก `Wire.begin()` เองโดยไม่ระบุพิน สเก็ตช์จึงล็อกกลับไป GPIO 21/22 หลัง init
-
-## อัปโหลด
-
-Arduino IDE: เลือกบอร์ด ESP32 Dev Module แล้วเปิดโฟลเดอร์ `esp32_lcd_keypad_i2c/`
-
-หรือ PlatformIO:
-
-```bash
-pio run -t upload
-pio device monitor
-```
+Arduino IDE: บอร์ด ESP32 Dev Module เปิดโฟลเดอร์ `esp32_lcd_keypad_i2c/`
