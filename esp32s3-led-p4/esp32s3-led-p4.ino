@@ -1,52 +1,38 @@
 /*
  * Board 2: ESP32-S3 + LED P4 64x32 HUB75
  *
- * WiFi AP ESP32-LED-P4 / 12345678
- * UDP 4210, HTTP http://192.168.4.1/ , BLE name ESP32S3-LED
- * Edit HUB75 pins in config.h if you use a different adapter.
+ * Receives SET:/CLR over ESP-NOW (WiFi MAC) from the keypad ESP32.
+ * On boot the panel shows this board's WiFi MAC so you can copy it
+ * into protocol.h as LED_BOARD_MAC.
  */
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiUdp.h>
-#include <WebServer.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+#include <esp_idf_version.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <Fonts/FreeSansBold9pt7b.h>
 #include "config.h"
 
 MatrixPanel_I2S_DMA *display = nullptr;
-WiFiUDP udp;
-WebServer server(80);
-BLECharacteristic *bleTx = nullptr;
 
 char currentText[MAX_MESSAGE_LEN + 1] = {0};
-bool bleClientConnected = false;
+char bootMac[18] = {0};
 unsigned long lastBlinkMs = 0;
+unsigned long bootMacUntilMs = 0;
 bool cursorOn = true;
 uint16_t colorBg;
 uint16_t colorBorder;
 uint16_t colorTitle;
 uint16_t colorText;
 
-class LedBleCallbacks : public BLEServerCallbacks {
-    void onConnect(BLEServer *bleServer) override {
-        bleClientConnected = true;
-        Serial.println("BLE client connected");
-    }
-    void onDisconnect(BLEServer *bleServer) override {
-        bleClientConnected = false;
-        Serial.println("BLE client disconnected");
-        bleServer->startAdvertising();
-    }
-};
-
-class LedBleRxCallbacks : public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *characteristic) override;
-};
+static String macToString(const uint8_t *mac) {
+    char buf[18];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    return String(buf);
+}
 
 static void sanitizeText(const char *input, char *output) {
     size_t n = 0;
@@ -70,10 +56,25 @@ static void drawScreen() {
     display->fillScreen(colorBg);
     display->drawRect(0, 0, PANEL_WIDTH, PANEL_HEIGHT, colorBorder);
     display->drawRect(1, 1, PANEL_WIDTH - 2, PANEL_HEIGHT - 2, colorBorder);
+    display->setTextWrap(false);
+
+    if (millis() < bootMacUntilMs) {
+        display->setFont();
+        display->setTextSize(1);
+        display->setTextColor(colorTitle);
+        display->setCursor(4, 4);
+        display->print("WiFi MAC");
+        display->setTextColor(colorText);
+        display->setCursor(4, 14);
+        display->print(bootMac);
+        display->setCursor(4, 23);
+        display->print("ch ");
+        display->print(ESPNOW_WIFI_CHANNEL);
+        return;
+    }
 
     display->setFont();
     display->setTextSize(1);
-    display->setTextWrap(false);
     display->setTextColor(colorTitle);
     display->setCursor(4, 2);
     display->print("P4 64x32");
@@ -104,12 +105,14 @@ static void drawScreen() {
 
 static void showText(const char *text) {
     sanitizeText(text, currentText);
+    bootMacUntilMs = 0;
     Serial.printf("DISPLAY [%s]\n", currentText);
     drawScreen();
 }
 
 static void clearText() {
     currentText[0] = '\0';
+    bootMacUntilMs = 0;
     Serial.println("DISPLAY cleared");
     drawScreen();
 }
@@ -128,115 +131,56 @@ static void applyPayload(const char *raw) {
     showText(payload.c_str());
 }
 
-void LedBleRxCallbacks::onWrite(BLECharacteristic *characteristic) {
-    String value(characteristic->getValue().c_str());
-    if (value.length() > 0) {
-        applyPayload(value.c_str());
-        if (bleTx) {
-            bleTx->setValue(currentText);
-            bleTx->notify();
-        }
-    }
-}
-
-static void pollUdp() {
-    int size = udp.parsePacket();
-    if (size <= 0) {
-        return;
-    }
+static void handleNowPacket(const uint8_t *mac, const uint8_t *data, int len) {
     char buf[64];
-    int len = udp.read(buf, sizeof(buf) - 1);
-    if (len <= 0) {
-        return;
+    int n = len;
+    if (n > (int)sizeof(buf) - 1) {
+        n = sizeof(buf) - 1;
     }
-    buf[len] = '\0';
-    Serial.printf("UDP from %s: %s\n", udp.remoteIP().toString().c_str(), buf);
+    memcpy(buf, data, n);
+    buf[n] = '\0';
+    Serial.printf("ESP-NOW from %s: %s\n", macToString(mac).c_str(), buf);
     applyPayload(buf);
 }
 
-static String htmlPage() {
-    String page;
-    page.reserve(900);
-    page += F("<!DOCTYPE html><html><head><meta charset='utf-8'>"
-              "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-              "<title>LED P4</title>"
-              "<style>body{font-family:sans-serif;background:#111;color:#eee;text-align:center;padding:24px}"
-              "input{font-size:28px;letter-spacing:8px;text-align:center;width:220px;padding:8px}"
-              "button{font-size:18px;margin:8px;padding:10px 16px}</style></head><body>");
-    page += F("<h2>ESP32-S3 LED P4 64x32</h2><p>Now: <b>");
-    page += currentText[0] ? currentText : "(empty)";
-    page += F("</b></p><form action='/set' method='GET'>"
-              "<p><input name='text' maxlength='6' value='");
-    page += currentText;
-    page += F("' autofocus></p>"
-              "<button type='submit'>Show</button>"
-              "<button type='submit' formaction='/clear'>Clear</button>"
-              "</form><p>WiFi: ");
-    page += WIFI_AP_SSID;
-    page += F(" / UDP ");
-    page += String(WIFI_UDP_PORT);
-    page += F("</p></body></html>");
-    return page;
-}
-
-static void handleRoot() {
-    server.send(200, "text/html", htmlPage());
-}
-
-static void handleSet() {
-    if (server.hasArg("text")) {
-        applyPayload(server.arg("text").c_str());
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+void onNowRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
+    if (!info || !data || len <= 0) {
+        return;
     }
-    server.sendHeader("Location", "/");
-    server.send(303);
+    handleNowPacket(info->src_addr, data, len);
 }
-
-static void handleClear() {
-    applyPayload("CLR");
-    server.sendHeader("Location", "/");
-    server.send(303);
+#else
+void onNowRecv(const uint8_t *mac, const uint8_t *data, int len) {
+    if (!mac || !data || len <= 0) {
+        return;
+    }
+    handleNowPacket(mac, data, len);
 }
+#endif
 
-static void startWifiAp() {
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD);
-    delay(150);
-    IPAddress ip = WiFi.softAPIP();
-    Serial.printf("WiFi AP %s  IP %s\n", WIFI_AP_SSID, ip.toString().c_str());
-    udp.begin(WIFI_UDP_PORT);
-    Serial.printf("UDP listen %d\n", WIFI_UDP_PORT);
-}
+static void startEspNow() {
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    delay(80);
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+    esp_wifi_set_promiscuous(false);
 
-static void startHttp() {
-    server.on("/", handleRoot);
-    server.on("/set", handleSet);
-    server.on("/clear", handleClear);
-    server.begin();
-    Serial.println("HTTP http://192.168.4.1/");
-}
+    uint8_t myMac[6];
+    WiFi.macAddress(myMac);
+    String mac = macToString(myMac);
+    strncpy(bootMac, mac.c_str(), sizeof(bootMac) - 1);
+    Serial.println("ESP32-S3 LED P4 64x32  (ESP-NOW / WiFi MAC)");
+    Serial.printf("This board MAC: %s\n", bootMac);
+    Serial.printf("Copy into keypad protocol.h as LED_BOARD_MAC\n");
+    Serial.printf("ESP-NOW channel %d\n", ESPNOW_WIFI_CHANNEL);
 
-static void startBle() {
-    BLEDevice::init(BLE_DEVICE_NAME);
-    BLEServer *serverBle = BLEDevice::createServer();
-    serverBle->setCallbacks(new LedBleCallbacks());
-
-    BLEService *service = serverBle->createService(BLE_NUS_SERVICE_UUID);
-    BLECharacteristic *bleRx = service->createCharacteristic(
-        BLE_NUS_CHARACTERISTIC_RX_UUID,
-        BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
-    bleRx->setCallbacks(new LedBleRxCallbacks());
-
-    bleTx = service->createCharacteristic(
-        BLE_NUS_CHARACTERISTIC_TX_UUID,
-        BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ);
-    bleTx->addDescriptor(new BLE2902());
-
-    service->start();
-    BLEAdvertising *advertising = BLEDevice::getAdvertising();
-    advertising->addServiceUUID(BLE_NUS_SERVICE_UUID);
-    advertising->setScanResponse(true);
-    advertising->start();
-    Serial.printf("BLE advertising as %s\n", BLE_DEVICE_NAME);
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("ESP-NOW init failed");
+        return;
+    }
+    esp_now_register_recv_cb(onNowRecv);
 }
 
 static void startPanel() {
@@ -263,32 +207,18 @@ static void startPanel() {
     colorBorder = display->color565(0, 80, 180);
     colorTitle = display->color565(120, 180, 255);
     colorText = display->color565(255, 220, 40);
+    bootMacUntilMs = millis() + 8000;
     drawScreen();
 }
 
 void setup() {
     Serial.begin(115200);
     delay(300);
-    Serial.println();
-    Serial.println("ESP32-S3 LED P4 64x32");
-
+    startEspNow();
     startPanel();
-#if ENABLE_WIFI_AP
-    startWifiAp();
-#endif
-#if ENABLE_HTTP
-    startHttp();
-#endif
-#if ENABLE_BLE
-    startBle();
-#endif
 }
 
 void loop() {
-    pollUdp();
-#if ENABLE_HTTP
-    server.handleClient();
-#endif
     if (millis() - lastBlinkMs > 500) {
         lastBlinkMs = millis();
         cursorOn = !cursorOn;

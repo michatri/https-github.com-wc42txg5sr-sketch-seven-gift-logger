@@ -5,19 +5,17 @@
  * colPins = {26, 25, 33}
  * * = space, # = clear, max 6 characters
  * LCD I2C SDA=21 SCL=22
- * Sends SET:/CLR over WiFi UDP and BLE to the ESP32-S3 LED board
+ * Sends SET:/CLR to the ESP32-S3 over ESP-NOW (WiFi MAC)
  */
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiUdp.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+#include <esp_idf_version.h>
 #include <Wire.h>
 #include <Keypad.h>
 #include <LiquidCrystal_I2C.h>
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
 #include "config.h"
 
 static_assert(KEYPAD_ROWS == 4 && KEYPAD_COLS == 3, "This sketch is for a 3x4 keypad");
@@ -34,58 +32,29 @@ byte colPins[KEYPAD_COLS] = KEYPAD_COL_PINS;
 
 Keypad keypad = Keypad(makeKeymap(KEYS), rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
 LiquidCrystal_I2C *lcd = nullptr;
-WiFiUDP udp;
 
 char message[MAX_MESSAGE_LEN + 1] = {0};
 uint8_t messageLen = 0;
 bool lcdReady = false;
-bool wifiReady = false;
+bool nowReady = false;
+volatile bool lastSendOk = false;
 String statusLine = "boot...";
-unsigned long lastStatusMs = 0;
-unsigned long lastWifiAttemptMs = 0;
 
-static BLEUUID kServiceUUID(BLE_NUS_SERVICE_UUID);
-static BLEUUID kRxUUID(BLE_NUS_CHARACTERISTIC_RX_UUID);
-static BLEClient *bleClient = nullptr;
-static BLERemoteCharacteristic *bleRx = nullptr;
-static BLEAdvertisedDevice *bleTarget = nullptr;
-static bool bleDoConnect = false;
-static bool bleConnected = false;
-static bool bleScanning = false;
-static unsigned long lastBleScanMs = 0;
+static uint8_t ledMac[6] = {LED_BOARD_MAC};
 
-static void bleScanDone(BLEScanResults results) {
-    (void)results;
-    bleScanning = false;
-    lastBleScanMs = millis();
+static String macToString(const uint8_t *mac) {
+    char buf[18];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    return String(buf);
 }
 
-class KeypadBleClientCallbacks : public BLEClientCallbacks {
-    void onConnect(BLEClient *client) override {
-        bleConnected = true;
-        Serial.println("BLE connected to LED board");
-    }
-    void onDisconnect(BLEClient *client) override {
-        bleConnected = false;
-        bleRx = nullptr;
-        Serial.println("BLE disconnected");
-    }
-};
-
-class KeypadBleScanCallbacks : public BLEAdvertisedDeviceCallbacks {
-    void onResult(BLEAdvertisedDevice advertisedDevice) override {
-        bool nameMatch = advertisedDevice.getName() == BLE_DEVICE_NAME;
-        bool uuidMatch = advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(kServiceUUID);
-        if (!nameMatch && !uuidMatch) {
-            return;
-        }
-        BLEDevice::getScan()->stop();
-        bleScanning = false;
-        delete bleTarget;
-        bleTarget = new BLEAdvertisedDevice(advertisedDevice);
-        bleDoConnect = true;
-    }
-};
+static String macNoColon(const uint8_t *mac) {
+    char buf[13];
+    snprintf(buf, sizeof(buf), "%02X%02X%02X%02X%02X%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    return String(buf);
+}
 
 static uint8_t scanLcdAddress() {
     const uint8_t preferred[] = {LCD_ADDR, LCD_ADDR_ALT};
@@ -132,69 +101,51 @@ static void setStatus(const String &text) {
     Serial.println(text);
 }
 
-static bool connectBleServer() {
-    if (!bleTarget) {
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+void onNowSent(const esp_now_send_info_t *info, esp_now_send_status_t status) {
+    (void)info;
+    lastSendOk = (status == ESP_NOW_SEND_SUCCESS);
+}
+#else
+void onNowSent(const uint8_t *mac, esp_now_send_status_t status) {
+    (void)mac;
+    lastSendOk = (status == ESP_NOW_SEND_SUCCESS);
+}
+#endif
+
+static bool startEspNow() {
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    delay(80);
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+    esp_wifi_set_promiscuous(false);
+
+    uint8_t myMac[6];
+    WiFi.macAddress(myMac);
+    Serial.printf("Keypad MAC: %s\n", macToString(myMac).c_str());
+    Serial.printf("LED MAC:    %s\n", macToString(ledMac).c_str());
+    Serial.printf("ESP-NOW channel %d\n", ESPNOW_WIFI_CHANNEL);
+
+    if (esp_now_init() != ESP_OK) {
+        setStatus("NOW init fail");
         return false;
     }
-    if (!bleClient) {
-        bleClient = BLEDevice::createClient();
-        bleClient->setClientCallbacks(new KeypadBleClientCallbacks());
+    esp_now_register_send_cb(onNowSent);
+
+    esp_now_peer_info_t peer = {};
+    memcpy(peer.peer_addr, ledMac, 6);
+    peer.channel = ESPNOW_WIFI_CHANNEL;
+    peer.encrypt = false;
+    peer.ifidx = WIFI_IF_STA;
+    if (esp_now_is_peer_exist(ledMac)) {
+        esp_now_del_peer(ledMac);
     }
-    if (!bleClient->connect(bleTarget)) {
-        Serial.println("BLE connect failed");
+    if (esp_now_add_peer(&peer) != ESP_OK) {
+        setStatus("NOW peer fail");
         return false;
     }
-    BLERemoteService *service = bleClient->getService(kServiceUUID);
-    if (!service) {
-        bleClient->disconnect();
-        return false;
-    }
-    bleRx = service->getCharacteristic(kRxUUID);
-    if (!bleRx || !bleRx->canWrite()) {
-        bleClient->disconnect();
-        bleRx = nullptr;
-        return false;
-    }
-    bleConnected = true;
     return true;
-}
-
-static void bleBegin() {
-    BLEDevice::init("ESP32-Keypad");
-    BLEScan *scan = BLEDevice::getScan();
-    scan->setAdvertisedDeviceCallbacks(new KeypadBleScanCallbacks());
-    scan->setActiveScan(true);
-    scan->setInterval(320);
-    scan->setWindow(160);
-    bleScanning = true;
-    scan->start(3, bleScanDone, false);
-    lastBleScanMs = millis();
-}
-
-static void blePoll() {
-    if (bleDoConnect) {
-        bleDoConnect = false;
-        if (connectBleServer()) {
-            setStatus("BLE+WiFi ready");
-            message[messageLen] = '\0';
-            // resend current buffer after link-up
-            char packet[32];
-            if (messageLen == 0) {
-                snprintf(packet, sizeof(packet), "CLR");
-            } else {
-                snprintf(packet, sizeof(packet), "SET:%s", message);
-            }
-            bleRx->writeValue(reinterpret_cast<uint8_t *>(packet), strlen(packet), false);
-        } else {
-            setStatus("BLE retry");
-        }
-    }
-
-    if (!bleConnected && !bleScanning && millis() - lastBleScanMs > 6000) {
-        lastBleScanMs = millis();
-        bleScanning = true;
-        BLEDevice::getScan()->start(3, bleScanDone, false);
-    }
 }
 
 static void sendToLedBoard(const char *text) {
@@ -204,19 +155,15 @@ static void sendToLedBoard(const char *text) {
     } else {
         snprintf(packet, sizeof(packet), "SET:%s", text);
     }
-    Serial.printf("TX %s\n", packet);
+    Serial.printf("TX %s -> %s\n", packet, macToString(ledMac).c_str());
 
-#if ENABLE_WIFI
-    if (wifiReady) {
-        IPAddress dest(LED_BOARD_IP_OCTET1, LED_BOARD_IP_OCTET2, LED_BOARD_IP_OCTET3, LED_BOARD_IP_OCTET4);
-        udp.beginPacket(dest, WIFI_UDP_PORT);
-        udp.write(reinterpret_cast<const uint8_t *>(packet), strlen(packet));
-        udp.endPacket();
+    if (!nowReady) {
+        return;
     }
-#endif
-
-    if (bleConnected && bleRx) {
-        bleRx->writeValue(reinterpret_cast<uint8_t *>(packet), strlen(packet), false);
+    esp_err_t err = esp_now_send(ledMac, reinterpret_cast<const uint8_t *>(packet), strlen(packet));
+    if (err != ESP_OK) {
+        lastSendOk = false;
+        setStatus("NOW send fail");
     }
 }
 
@@ -265,34 +212,11 @@ static void handleKey(char key) {
     applyMessage();
 }
 
-static void pollWifi() {
-#if ENABLE_WIFI
-    if (WiFi.status() == WL_CONNECTED) {
-        if (!wifiReady) {
-            wifiReady = true;
-            udp.begin(WIFI_UDP_PORT);
-            setStatus("WiFi OK");
-            applyMessage();
-        }
-        return;
-    }
-
-    wifiReady = false;
-    if (millis() - lastWifiAttemptMs < 5000) {
-        return;
-    }
-    lastWifiAttemptMs = millis();
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_AP_SSID, WIFI_AP_PASSWORD);
-    setStatus("WiFi joining...");
-#endif
-}
-
 void setup() {
     Serial.begin(115200);
     delay(200);
     Serial.println();
-    Serial.println("ESP32 keypad + LCD 16x2");
+    Serial.println("ESP32 keypad + LCD 16x2  (ESP-NOW / WiFi MAC)");
 
     Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
     delay(50);
@@ -306,22 +230,30 @@ void setup() {
         lcd->backlight();
         lcd->clear();
         lcdReady = true;
-        lcd->setCursor(0, 0);
-        lcd->print("ESP32 Keypad");
-        lcd->setCursor(0, 1);
-        lcd->print("LCD OK");
-        delay(400);
     }
 
     keypad.setDebounceTime(40);
     keypad.setHoldTime(400);
-    setStatus("* space  # clr");
-    refreshLcd();
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_AP_SSID, WIFI_AP_PASSWORD);
-    lastWifiAttemptMs = millis();
-    bleBegin();
+    nowReady = startEspNow();
+
+    uint8_t myMac[6];
+    WiFi.macAddress(myMac);
+    if (lcdReady) {
+        lcd->setCursor(0, 0);
+        lcd->print("My MAC          ");
+        lcd->setCursor(0, 1);
+        lcd->print(macNoColon(myMac));
+        delay(1500);
+        lcd->setCursor(0, 0);
+        lcd->print("LED MAC         ");
+        lcd->setCursor(0, 1);
+        lcd->print(macNoColon(ledMac));
+        delay(1500);
+    }
+
+    setStatus(nowReady ? "ESP-NOW ready" : "ESP-NOW fail");
+    refreshLcd();
 }
 
 void loop() {
@@ -335,20 +267,6 @@ void loop() {
         char incoming = Serial.read();
         if (incoming != '\r' && incoming != '\n') {
             handleKey(incoming);
-        }
-    }
-
-    pollWifi();
-    blePoll();
-
-    if (millis() - lastStatusMs > 2500) {
-        lastStatusMs = millis();
-        if (!wifiReady && !bleConnected) {
-            setStatus("wait LED board");
-        } else if (!wifiReady) {
-            setStatus("BLE only");
-        } else if (!bleConnected) {
-            setStatus("WiFi only");
         }
     }
 }

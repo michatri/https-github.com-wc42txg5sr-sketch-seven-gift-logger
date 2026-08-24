@@ -22,5 +22,3 @@
 #define LCD_ADDR_ALT    0x3F
 #define LCD_COLS        16
 #define LCD_ROWS        2
-
-#define ENABLE_WIFI     1

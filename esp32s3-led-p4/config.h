@@ -15,7 +15,6 @@
 
 // ---- HUB75 pin map for ESP32-S3-DevKitC-1 ----
 // Avoids USB (19/20), UART0 (43/44), and octal-PSRAM pins (35-37).
-// Change these if you use an adapter board with a fixed pinout.
 #define HUB75_R1  4
 #define HUB75_G1  5
 #define HUB75_B1  6
@@ -30,7 +29,3 @@
 #define HUB75_LAT 11
 #define HUB75_OE  12
 #define HUB75_CLK 13
-
-#define ENABLE_WIFI_AP  1
-#define ENABLE_BLE      1
-#define ENABLE_HTTP     1
