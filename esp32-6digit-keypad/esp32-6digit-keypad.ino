@@ -2,6 +2,7 @@
 
 #define LED_PIN 2
 #define MAX_DIGITS 6
+#define LCD_COLS 16
 
 const int SDA_PIN = 21;
 const int SCL_PIN = 22;
@@ -17,39 +18,50 @@ char keymap[ROWS][COLS] = {
 byte rowPins[ROWS] = {13, 32, 14, 27};
 byte colPins[COLS] = {26, 25, 33};
 
-char digits[MAX_DIGITS + 1];
-byte digitCount = 0;
+char screen[LCD_COLS + 1];
+byte screenLen = 0;
+byte groupLen = 0;
 bool lcdOk = false;
 uint8_t lcdAddr = 0;
 uint8_t lcdBl = 0x08;
-bool showingOk = false;
-uint32_t okAt = 0;
 uint32_t lastBlink = 0;
 bool ledOn = false;
 
-void clearDigits() {
-  digitCount = 0;
-  digits[0] = '\0';
+void clearScreen() {
+  screenLen = 0;
+  groupLen = 0;
+  screen[0] = '\0';
 }
 
 void addDigit(char d) {
-  if (digitCount >= MAX_DIGITS) {
+  if (groupLen >= MAX_DIGITS) {
     Serial.println("FULL");
     return;
   }
-  digits[digitCount++] = d;
-  digits[digitCount] = '\0';
-  Serial.print("VALUE ");
-  Serial.println(digits);
-}
-
-void delDigit() {
-  if (digitCount == 0) {
+  if (screenLen >= LCD_COLS) {
+    Serial.println("LINE FULL");
     return;
   }
-  digits[--digitCount] = '\0';
+  screen[screenLen++] = d;
+  screen[screenLen] = '\0';
+  groupLen++;
   Serial.print("VALUE ");
-  Serial.println(digits);
+  Serial.println(screen);
+}
+
+void addSpace() {
+  if (groupLen == 0) {
+    return;
+  }
+  if (screenLen >= LCD_COLS) {
+    Serial.println("LINE FULL");
+    return;
+  }
+  screen[screenLen++] = ' ';
+  screen[screenLen] = '\0';
+  groupLen = 0;
+  Serial.print("SPACE ");
+  Serial.println(screen);
 }
 
 bool i2cWrite(uint8_t addr, uint8_t data) {
@@ -202,12 +214,16 @@ void showPrompt() {
   lcdAt(0, 0);
   lcdPrint("Enter number");
   lcdAt(0, 1);
-  if (digitCount == 0) {
+  if (screenLen == 0) {
     lcdPrint("______");
     return;
   }
-  lcdPrint(digits);
-  for (byte i = digitCount; i < MAX_DIGITS; i++) {
+  lcdPrint(screen);
+  byte remain = MAX_DIGITS - groupLen;
+  if (screenLen + remain > LCD_COLS) {
+    remain = LCD_COLS - screenLen;
+  }
+  for (byte i = 0; i < remain; i++) {
     lcdChar('_');
   }
 }
@@ -217,47 +233,26 @@ void showHello() {
   lcdAt(0, 0);
   lcdPrint("HELLO ESP32");
   lcdAt(0, 1);
-  lcdPrint("Press 0-9");
+  lcdPrint("* clear  # space");
 }
 
 void handleKey(char key) {
-  if (showingOk) {
-    showingOk = false;
-    clearDigits();
-  }
-
   if (key >= '0' && key <= '9') {
-    if (digitCount >= MAX_DIGITS) {
-      lcdAt(0, 1);
-      lcdPrint("Full 6 digits");
-      delay(400);
-    } else {
-      addDigit(key);
-    }
+    addDigit(key);
     showPrompt();
     return;
   }
 
   if (key == '*') {
-    delDigit();
+    clearScreen();
+    Serial.println("CLEAR");
     showPrompt();
     return;
   }
 
   if (key == '#') {
-    if (digitCount == 0) {
-      Serial.println("empty");
-      return;
-    }
-    Serial.print("OK ");
-    Serial.println(digits);
-    lcdClear();
-    lcdAt(0, 0);
-    lcdPrint("Confirmed");
-    lcdAt(0, 1);
-    lcdPrint(digits);
-    showingOk = true;
-    okAt = millis();
+    addSpace();
+    showPrompt();
   }
 }
 
@@ -268,7 +263,7 @@ void setup() {
   Serial.println("ESP32 keypad start");
 
   initKeys();
-  clearDigits();
+  clearScreen();
   Wire.begin(SDA_PIN, SCL_PIN);
   Wire.setClock(50000);
   delay(200);
@@ -291,12 +286,6 @@ void loop() {
     lastBlink = now;
     ledOn = !ledOn;
     digitalWrite(LED_PIN, ledOn ? HIGH : LOW);
-  }
-
-  if (showingOk && (now - okAt > 2000)) {
-    showingOk = false;
-    clearDigits();
-    showPrompt();
   }
 
   char key = readKey();
