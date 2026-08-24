@@ -239,9 +239,13 @@ void refresh() {
 }
 
 void setupEspNow() {
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP("ESP-KEYPAD", NULL, 1);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+  Serial.print("WiFi name ");
+  Serial.println("ESP-KEYPAD");
+  Serial.print("MAC ");
+  Serial.println(WiFi.macAddress());
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP-NOW fail");
     return;
@@ -260,7 +264,7 @@ void showHello() {
   lcdAt(0, 0);
   lcdPrint("HELLO ESP32");
   lcdAt(0, 1);
-  lcdPrint("* clear  # space");
+  lcdPrint("WiFi ESP-KEYPAD");
 }
 
 void handleKey(char key) {

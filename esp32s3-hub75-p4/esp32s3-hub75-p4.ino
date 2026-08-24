@@ -96,9 +96,13 @@ void setupPanel() {
 }
 
 void setupEspNow() {
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP("ESP-HUB75", NULL, 1);
   esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+  Serial.print("WiFi name ");
+  Serial.println("ESP-HUB75");
+  Serial.print("MAC ");
+  Serial.println(WiFi.macAddress());
   if (esp_now_init() != ESP_OK) {
     Serial.println("ESP-NOW fail");
     return;
@@ -115,7 +119,7 @@ void setup() {
   incoming[0] = '\0';
   setupPanel();
   setupEspNow();
-  drawText("READY");
+  drawText("ESP-HUB75");
 }
 
 void loop() {
