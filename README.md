@@ -18,19 +18,15 @@
 
 ## จับคู่ด้วย MAC
 
-1. อัปโหลดบอร์ด 2 (`esp32s3-led-p4`) ก่อน
+1. อัปโหลดบอร์ด 2 (`esp32s3-led-p4/esp32s3-led-p4.ino`) ก่อน
 2. เปิด Serial Monitor 115200 หรือดูจอ LED ตอนบูต จะขึ้น WiFi MAC เช่น `24:6F:28:AA:BB:CC`
-3. ใส่ MAC นั้นใน `esp32-keypad-lcd/protocol.h`
+3. ใส่ MAC นั้นในโค้ดบอร์ด 1 แล้วอัปโหลดบอร์ด 1
 
 ```c
-#define LED_BOARD_MAC 0x24, 0x6F, 0x28, 0xAA, 0xBB, 0xCC
+uint8_t ledMac[] = {0x24, 0x6F, 0x28, 0xAA, 0xBB, 0xCC};
 ```
 
-4. อัปโหลดบอร์ด 1 (`esp32-keypad-lcd`)
-
-ถ้ายังไม่ใส่ MAC จริง ค่าเริ่มต้น `FF:FF:FF:FF:FF:FF` คือ broadcast ส่งถึงทุกบอร์ด ESP-NOW ที่ช่องเดียวกัน (ช่อง `1`)
-
-ทั้งสองบอร์ดต้องใช้ `ESPNOW_WIFI_CHANNEL` ค่าเดียวกันใน `protocol.h`
+ค่าเริ่มต้น `FF:FF:FF:FF:FF:FF` คือ broadcast ใช้ทดสอบได้ทันที ทั้งสองบอร์ดต้องใช้ช่อง `ESPNOW_CHANNEL 1` ตรงกัน
 
 ## สิ่งที่ต้องใช้
 
@@ -110,7 +106,7 @@ GPIO 12 เป็นขา strapping ของ ESP32 หากอัปโหล
 
 สเก็ตช์จะสแกนหาที่อยู่ I2C ให้เอง (`0x27`, `0x3F`, แล้วช่วง `0x20–0x3F`)
 
-ตอนบูต LCD จะโชว์ MAC ของตัวเอง แล้วโชว์ MAC ปลายทางที่ตั้งใน `LED_BOARD_MAC`
+ตอนบูต LCD จะโชว์ MAC ของตัวเอง แล้วโชว์ MAC ปลายทางใน `ledMac[]`
 
 ### การใช้งานคีย์แพด
 
@@ -134,7 +130,7 @@ GPIO 12 เป็นขา strapping ของ ESP32 หากอัปโหล
 
 ### สาย HUB75 → ESP32-S3
 
-ค่าเริ่มต้นใน `esp32s3-led-p4/config.h`
+ขา HUB75 ตั้งไว้ด้านบนของ `esp32s3-led-p4.ino`
 
 | HUB75 | สัญญาณ | ESP32-S3 GPIO |
 | --- | --- | --- |
@@ -167,11 +163,11 @@ GPIO 12 เป็นขา strapping ของ ESP32 หากอัปโหล
 15 OE   16 GND
 ```
 
-ถ้าสีเพี้ยน / ภาพเบลอ / แถวเลื่อน ให้ลองใน `config.h`
+ถ้าสีเพี้ยน / ภาพเบลอ / แถวเลื่อน ให้ลองในสเก็ตช์บอร์ด 2
 
 - `#define PANEL_FM6126A 1`
-- ลด `PANEL_BRIGHTNESS` เช่น 40
-- สลับ `mxconfig.clkphase` ในสเก็ตช์ถ้าภาพแตกเป็นเงา
+- ลด `BRIGHTNESS` เช่น 40
+- สลับ `cfg.clkphase` ถ้าภาพแตกเป็นเงา
 
 ## โปรโตคอล ESP-NOW
 
@@ -198,7 +194,7 @@ CLR
 | LCD ดำ / มีกล่อง | ปรับคอนทราสต์บน backpack, ตรวจ SDA/SCL, ดู Serial ว่าเจอที่อยู่ I2C หรือไม่ |
 | คีย์ไม่ขึ้น | สลับแถว/คอลัมน์ตามสายจริงของคีย์แพด, ตรวจ GPIO |
 | อัปโหลด ESP32 ไม่ติด | ถอดคีย์แพดออกจาก GPIO 12 / กด BOOT |
-| จอไม่ขึ้นตามคีย์ | ใส่ MAC ของบอร์ด 2 ใน `LED_BOARD_MAC`, ช่อง WiFi ต้องตรงกัน (`ESPNOW_WIFI_CHANNEL`) |
+| จอไม่ขึ้นตามคีย์ | ใส่ MAC ของบอร์ด 2 ใน `ledMac[]`, ช่อง WiFi ต้องตรงกัน (`ESPNOW_CHANNEL`) |
 | ESP-NOW fail | เปิดบอร์ด 2 ก่อน, วางใกล้กัน, ตรวจ Serial ทั้งสองฝั่ง |
 | จอ LED ไม่ติด | ไฟ 5V ของแผง, GND ร่วม, สาย OE/CLK/LAT, ลดความสว่าง |
 | จอ LED สีผิด / เส้นแตก | ลอง `PANEL_FM6126A 1`, ตรวจ R1/G1/B1 สลับกันหรือไม่ |
@@ -206,7 +202,6 @@ CLR
 ## โครงสร้างไฟล์
 
 ```
-esp32-keypad-lcd/      สเก็ตช์บอร์ด 1 (ส่ง ESP-NOW ตาม MAC)
-esp32s3-led-p4/        สเก็ตช์บอร์ด 2 (รับ ESP-NOW)
-shared/protocol.h      MAC + ช่อง WiFi (สำเนาอยู่ในแต่ละสเก็ตช์)
+esp32-keypad-lcd/esp32-keypad-lcd.ino   บอร์ด 1 ไฟล์เดียว
+esp32s3-led-p4/esp32s3-led-p4.ino       บอร์ด 2 ไฟล์เดียว
 ```
