@@ -30,7 +30,7 @@ const int MAX_DIGITS = 5;
 volatile bool sendPending = false;
 volatile esp_now_send_status_t lastSendStatus = ESP_NOW_SEND_FAIL;
 unsigned long statusUntilMs = 0;
-uint8_t lastRawKey = 16;  // I2C_KEYPAD_NOKEY
+uint8_t lastRawKey = I2C_KEYPAD_NOKEY;
 
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
 void OnDataSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
@@ -188,8 +188,7 @@ void loop() {
   }
   lastRawKey = raw;
 
-  // 16 = ไม่มีปุ่ม, 17 = อ่านไม่สำเร็จ
-  if (raw >= 16) {
+  if (raw == I2C_KEYPAD_NOKEY || raw == I2C_KEYPAD_FAIL) {
     return;
   }
 
