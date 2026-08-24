@@ -1,0 +1,5 @@
+*.o
+*.out
+test_digit_input
+.pio/
+.vscode/
